@@ -37,7 +37,19 @@ impl BitString {
         }
     }
 
+    pub fn get(&self, pos: usize) -> bool {
+        self.bits[pos]
+    }
+
+    pub fn push(&mut self, bit: bool) {
+        self.bits.push(bit);
+    }
+
     pub fn len(&self) -> usize { self.bits.len() }
+
+    pub fn with_capacity(cap: usize) -> BitString {
+        BitString {bits: BitVec::with_capacity(cap)}
+    }
 
     pub fn new() -> BitString {
         BitString {bits: BitVec::new()}
