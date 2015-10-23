@@ -1,0 +1,8 @@
+[package]
+name = "evo"
+version = "0.1.0"
+authors = ["Michael Neumann <mneumann@ntecs.de>"]
+
+[dependencies]
+bit-vec = "*"
+rand = "0.3"
