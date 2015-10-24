@@ -22,10 +22,11 @@ impl BitRepr for bool {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BitString {
     bits: BitVec,
 }
+use rand::{Rng, Rand};
 
 impl BitString {
     /// Append the lowest `nbits` bits of `value` to the BitString, msb first.
@@ -37,12 +38,42 @@ impl BitString {
         }
     }
 
+    /// Flip bits with probability `prob`. 
+    /// The default rng for floats returns numbers in [0, 1)
+    pub fn flip_bits_randomly<R:Rng>(&mut self, rng: &mut R, prob: f32) {
+        debug_assert!(prob >= 0.0 && prob <= 1.0);
+        for i in 0..self.len() {
+            if rng.gen::<f32>() < prob {
+                self.flip(i);
+            } 
+        }
+    }
+
+    pub fn flip(&mut self, pos: usize) {
+        let old = self.get(pos);
+        self.set(pos, !old);
+    }
+
+    pub fn set(&mut self, pos: usize, val: bool) {
+        self.bits.set(pos, val);
+    }
+
     pub fn get(&self, pos: usize) -> bool {
         self.bits[pos]
     }
 
     pub fn push(&mut self, bit: bool) {
         self.bits.push(bit);
+    }
+
+    pub fn count(&self, val: bool) -> usize {
+        let mut cnt = 0;
+        for v in self.bits.iter() {
+            if v == val {
+                cnt += 1;
+            }
+        }
+        return cnt;
     }
 
     pub fn len(&self) -> usize { self.bits.len() }
@@ -57,6 +88,22 @@ impl BitString {
 
     pub fn from_elem(len: usize, val: bool) -> BitString {
         BitString {bits: BitVec::from_elem(len, val)}
+    }
+
+    pub fn from_iter<I>(iter: I) -> BitString where I:Iterator<Item=bool> {
+        let mut bs;
+        match iter.size_hint() {
+            (lower, Some(upper)) if upper > lower => {
+                bs = BitString::with_capacity(upper); 
+            }
+            (lower, _) => {
+                bs = BitString::with_capacity(lower); 
+            }
+        }
+        for val in iter {
+            bs.push(val);
+        }
+        return bs;
     }
 
     pub fn to_vec(&self) -> Vec<bool> {
@@ -91,6 +138,7 @@ pub fn crossover_one_point(point: usize, parents: (&BitString, &BitString)) -> (
 
     return (ca, cb);
 }
+
 
 #[test]
 fn test_bitstring() {
