@@ -21,6 +21,8 @@ use evo::{
     VariationMethod,
     tournament_selection,
     ea_mu_plus_lambda,
+    Probability,
+    ProbabilityValue,
 };
 use evo::bit_string::{
     BitString,
@@ -52,9 +54,9 @@ impl Evaluator<MyGenome, usize> for MyEval {
 
 struct Toolbox {
     rng: Box<Rng>,
-    prob_crossover: f32,
-    prob_mutation: f32,
-    prob_bitflip: f32,
+    prob_crossover: Probability,
+    prob_mutation: Probability,
+    prob_bitflip: Probability,
     tournament_size: usize,
 }
 
@@ -76,11 +78,11 @@ impl OpMutate<MyGenome> for Toolbox {
 
 impl OpVariation for Toolbox {
     fn variation(&mut self) -> VariationMethod {
-        let r = self.rng.gen::<f32>();
-        if r < self.prob_crossover {
+        let r = self.rng.gen::<ProbabilityValue>();
+        if r.is_probable_with(self.prob_crossover) {
             VariationMethod::Crossover
         }
-        else if r < self.prob_crossover + self.prob_mutation {
+        else if r.is_probable_with(self.prob_crossover + self.prob_mutation) {
             VariationMethod::Mutation
         }
         else {
@@ -141,9 +143,9 @@ fn main() {
 
    let mut toolbox = Toolbox {
         rng: Box::new(rng),
-        prob_crossover: 0.5,
-        prob_mutation: 0.2,
-        prob_bitflip: 0.05,
+        prob_crossover: Probability::new(0.5),
+        prob_mutation: Probability::new(0.2),
+        prob_bitflip: Probability::new(0.05),
         tournament_size: 3,
    };
 

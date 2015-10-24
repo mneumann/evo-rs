@@ -1,5 +1,7 @@
 use super::bit_vec::BitVec;
 use std::usize;
+use rand::Rng;
+use super::{Probability, ProbabilityValue};
 
 pub trait BitRepr {
     fn nbits(&self) -> usize;
@@ -26,7 +28,6 @@ impl BitRepr for bool {
 pub struct BitString {
     bits: BitVec,
 }
-use rand::{Rng, Rand};
 
 impl BitString {
     /// Append the lowest `nbits` bits of `value` to the BitString, msb first.
@@ -40,10 +41,9 @@ impl BitString {
 
     /// Flip bits with probability `prob`. 
     /// The default rng for floats returns numbers in [0, 1)
-    pub fn flip_bits_randomly<R:Rng>(&mut self, rng: &mut R, prob: f32) {
-        debug_assert!(prob >= 0.0 && prob <= 1.0);
+    pub fn flip_bits_randomly<R:Rng>(&mut self, rng: &mut R, prob: Probability) {
         for i in 0..self.len() {
-            if rng.gen::<f32>() < prob {
+            if rng.gen::<ProbabilityValue>().is_probable_with(prob) {
                 self.flip(i);
             } 
         }
