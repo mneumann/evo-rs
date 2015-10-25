@@ -102,6 +102,9 @@ impl<I:Individual, F:Fitness>  EvaluatedIndividual<I,F> {
     pub fn fitness(&self) -> Option<F> {
         self.fitness.clone()
     }
+    pub fn individual<'a>(&'a self) -> &'a I {
+        &self.individual
+    }
 }
 
 /// Manages a population of individuals.
@@ -121,6 +124,26 @@ impl<I:Individual, F:Fitness> Population<I,F> {
 
     pub fn len(&self) -> usize {
         self.population.len()
+    }
+
+    /// Return individual with best fitness.
+    pub fn fittest(&self) -> Option<(usize, F)> {
+        let mut fittest: Option<(usize, F)> = None;
+
+        for (i, ref ind) in self.population.iter().enumerate() {
+            if let Some(ref f) = ind.fitness {
+                let mut is_better = true;
+                if let Some((_, ref best_f)) = fittest {
+                    if !f.fitter_than(best_f) {
+                        is_better = false;
+                    }
+                }
+                if is_better {
+                    fittest = Some((i, f.clone()));
+                }
+            }
+        }
+        return fittest;
     }
 
     pub fn get_ref<'a>(&'a self, idx: usize) -> &'a EvaluatedIndividual<I, F> {
