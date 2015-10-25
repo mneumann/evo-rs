@@ -300,5 +300,7 @@ where I: Individual,
         stat(gen+1, &p);
     }
 
+    let _ = nevals;
+
     return p; 
 }
