@@ -9,7 +9,7 @@
 #![feature(num_bits_bytes)]
 extern crate bit_vec;
 extern crate rand;
-use rand::{Rng, sample, Rand};
+use rand::{Rng, Rand};
 use std::cmp::PartialOrd;
 
 pub mod bit_string;
@@ -179,7 +179,12 @@ impl<I:Individual, F:Fitness> Population<I,F> {
 }
 
 /// Select the best individual out of `k` randomly choosen.
+/// This gives individuals with better fitness a higher chance to reproduce.
 /// `n` is the total number of individuals.
+///
+/// NOTE: We are not using `sample(rng, 0..n, k)` as it is *very* expensive.
+/// Instead we call `rng.gen_range()` k-times. The drawn items could be the same,
+/// but the probability is very low if `n` high compared to `k`.
 pub fn tournament_selection<R:Rng, F, E>(rng: &mut R, evaluate: E, n: usize, k: usize) -> Option<(usize, F)>
   where F:Fitness,
         E:Fn(usize) -> F {
@@ -187,8 +192,8 @@ pub fn tournament_selection<R:Rng, F, E>(rng: &mut R, evaluate: E, n: usize, k: 
 
     let mut best: Option<(usize, F)> = None;
 
-    let sample = sample(rng, 0..n, k);
-    for i in sample {
+    for _ in 0..k {
+        let i = rng.gen_range(0, n);
         let fitness = evaluate(i);
         let better = match best {
             Some((_, ref current_best_fitness)) => {
