@@ -23,6 +23,7 @@ use evo::{
     ea_mu_plus_lambda,
     Probability,
     ProbabilityValue,
+    MaxFitness,
 };
 use evo::bit_string::{
     BitString,
@@ -46,9 +47,9 @@ impl Individual for MyGenome {
 
 struct MyEval;
 
-impl Evaluator<MyGenome, usize> for MyEval {
-    fn fitness(&self, ind: &MyGenome) -> usize {
-        ind.bits.count(true)
+impl Evaluator<MyGenome, MaxFitness<usize>> for MyEval {
+    fn fitness(&self, ind: &MyGenome) -> MaxFitness<usize> {
+        MaxFitness(ind.bits.count(true))
     }
 }
 
@@ -110,10 +111,10 @@ impl<I: Individual, F: Fitness> OpSelect<I, F> for Toolbox {
     }
 }
 
-fn print_stat(p: &Population<MyGenome, usize>) {
+fn print_stat(p: &Population<MyGenome, MaxFitness<usize>>) {
     let mut fitnesses = Vec::new();
     for i in 0..p.len() {
-        let f = p.get_ref(i).fitness().unwrap();
+        let f = p.get_ref(i).fitness().unwrap().0;
         fitnesses.push(f);
     }
     let min = fitnesses.iter().fold(fitnesses[0], |b, &i| cmp::min(b, i));
@@ -131,7 +132,7 @@ fn main() {
 
    let mut rng = rand::isaac::Isaac64Rng::new_unseeded();
 
-   let mut initial_population: Population<MyGenome, usize> = Population::with_capacity(MU);
+   let mut initial_population: Population<MyGenome, MaxFitness<usize>> = Population::with_capacity(MU);
    for _ in 0..MU {
         let iter = rng.gen_iter::<bool>().take(BITS);
         initial_population.add_individual(MyGenome{bits:BitString::from_iter(iter)});

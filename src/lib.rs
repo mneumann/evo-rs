@@ -79,12 +79,6 @@ impl<T:PartialOrd+Clone> Fitness for MinFitness<T> {
     }
 }
 
-impl Fitness for usize {
-    fn fitter_than(&self, other: &Self) -> bool {
-        self > other
-    }
-}
-
 /// Represents an individual in a Population.
 pub trait Individual: Clone {
 }
