@@ -10,6 +10,7 @@
 extern crate bit_vec;
 extern crate rand;
 use rand::{Rng, sample, Rand};
+use std::cmp::PartialOrd;
 
 pub mod bit_string;
 
@@ -58,6 +59,24 @@ impl ProbabilityValue {
 /// Represents a fitness value.
 pub trait Fitness: Clone {
     fn fitter_than(&self, other: &Self) -> bool;
+}
+
+/// Maximizes the fitness value as objective.
+#[derive(Copy, Clone, Debug)]
+pub struct MaxFitness<T:PartialOrd+Clone>(pub T);
+impl<T:PartialOrd+Clone> Fitness for MaxFitness<T> {
+    fn fitter_than(&self, other: &MaxFitness<T>) -> bool {
+        self.0 > other.0
+    }
+}
+
+/// Minimizes the fitness value as objective.
+#[derive(Copy, Clone, Debug)]
+pub struct MinFitness<T:PartialOrd+Clone>(pub T);
+impl<T:PartialOrd+Clone> Fitness for MinFitness<T> {
+    fn fitter_than(&self, other: &MinFitness<T>) -> bool {
+        self.0 < other.0
+    }
 }
 
 impl Fitness for usize {
