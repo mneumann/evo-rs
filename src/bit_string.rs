@@ -9,7 +9,9 @@ pub trait BitRepr {
 }
 
 impl BitRepr for usize {
+    #[inline(always)]
     fn nbits(&self) -> usize { usize::BITS }
+    #[inline(always)]
     fn get_bit(&self, pos: usize) -> bool {
         assert!(pos < self.nbits());
         (*self >> pos) & 1 == 1
@@ -17,7 +19,9 @@ impl BitRepr for usize {
 }
 
 impl BitRepr for bool {
+    #[inline(always)]
     fn nbits(&self) -> usize { 1 }
+    #[inline(always)]
     fn get_bit(&self, pos: usize) -> bool {
         assert!(pos == 0);
         *self
@@ -49,19 +53,23 @@ impl BitString {
         }
     }
 
+    #[inline]
     pub fn flip(&mut self, pos: usize) {
         let old = self.get(pos);
         self.set(pos, !old);
     }
 
+    #[inline(always)]
     pub fn set(&mut self, pos: usize, val: bool) {
         self.bits.set(pos, val);
     }
 
+    #[inline(always)]
     pub fn get(&self, pos: usize) -> bool {
         self.bits[pos]
     }
 
+    #[inline(always)]
     pub fn push(&mut self, bit: bool) {
         self.bits.push(bit);
     }
@@ -76,16 +84,20 @@ impl BitString {
         return cnt;
     }
 
+    #[inline(always)]
     pub fn len(&self) -> usize { self.bits.len() }
 
+    #[inline]
     pub fn with_capacity(cap: usize) -> BitString {
         BitString {bits: BitVec::with_capacity(cap)}
     }
 
+    #[inline]
     pub fn new() -> BitString {
         BitString {bits: BitVec::new()}
     }
 
+    #[inline]
     pub fn from_elem(len: usize, val: bool) -> BitString {
         BitString {bits: BitVec::from_elem(len, val)}
     }
@@ -106,6 +118,7 @@ impl BitString {
         return bs;
     }
 
+    #[inline]
     pub fn to_vec(&self) -> Vec<bool> {
         self.bits.iter().collect()
     }
