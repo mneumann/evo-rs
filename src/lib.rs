@@ -160,11 +160,15 @@ impl<I:Individual, F:Fitness> Population<I,F> {
 
     /// Evaluates the whole population, i.e. determines the fitness of
     /// each `individual` (unless already calculated).
-    pub fn evaluate<E>(&mut self, evaluator: &E) where E:Evaluator<I,F> {
+    /// Returns the number of evaluations performed.
+    pub fn evaluate<E>(&mut self, evaluator: &E) -> usize where E:Evaluator<I,F> {
+        let mut nevals = 0;
         for i in self.population.iter_mut() {
             if i.fitness.is_some() { continue; }
             i.fitness = Some(evaluator.fitness(&i.individual));
+            nevals += 1;
         }
+        return nevals;
     }
 
     fn add_population(&mut self, p: &Population<I,F>) {
