@@ -285,15 +285,16 @@ where I: Individual,
       E: Evaluator<I,F>,
       S: Fn(usize, &Population<I,F>)
 {
+    let mut nevals = 0;
     let mut p = population.clone();
-    p.evaluate(evaluator);
+    nevals += p.evaluate(evaluator);
     stat(0, &p);
 
     for gen in 0..num_generations {
         // evaluate population. make sure that every individual has been rated.
         let mut offspring = variation_or(toolbox, &p, lambda);
         offspring.add_population(&p);
-        offspring.evaluate(evaluator);
+        nevals += offspring.evaluate(evaluator);
         // select from offspring the `best` individuals
         p = toolbox.select(&offspring, mu); 
         stat(gen+1, &p);
