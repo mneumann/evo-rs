@@ -128,7 +128,7 @@ fn main() {
    const BITS: usize = 100;
    const MU: usize = 300;
    const LAMBDA: usize = 300;
-   const NGEN: usize = 40;
+   const NGEN: usize = 100;
 
    let mut rng = rand::isaac::Isaac64Rng::new_unseeded();
 
@@ -139,7 +139,7 @@ fn main() {
    }
    let evaluator = MyEval;
    initial_population.evaluate(&evaluator);
-   print_stat(&initial_population);
+   //print_stat(&initial_population);
    //println!("{:?}", initial_population);
 
    let mut toolbox = Toolbox {
@@ -150,7 +150,10 @@ fn main() {
         tournament_size: 3,
    };
 
-   let optimum = evo::ea_mu_plus_lambda(&mut toolbox, &evaluator, &initial_population, MU, LAMBDA, NGEN);
-   print_stat(&optimum);
-   //println!("{:?}", optimum);
+   fn stat(gen:usize, pop: &Population<MyGenome, MaxFitness<usize>>) {
+       print!("{} ", gen);
+       print_stat(&pop);
+   }
+
+   let _optimum = evo::ea_mu_plus_lambda(&mut toolbox, &evaluator, &initial_population, MU, LAMBDA, NGEN, stat);
 }

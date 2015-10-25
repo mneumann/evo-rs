@@ -245,22 +245,26 @@ where I: Individual,
 // From `population`, \lambda offspring is produced, through either
 // mutation, crossover or random reproduction.
 // For the next generation, \mu individuals are selected from the \mu + \lambda (parents and offspring).
-pub fn ea_mu_plus_lambda<I,F,T,E>(toolbox: &mut T, evaluator: &E, population: &Population<I,F>, mu: usize, lambda: usize, num_generations: usize) -> Population<I,F>
+pub fn ea_mu_plus_lambda<I,F,T,E,S>(toolbox: &mut T, evaluator: &E, population: &Population<I,F>, mu: usize, lambda: usize, num_generations: usize, stat: S)
+    -> Population<I,F>
 where I: Individual,
       F: Fitness,
       T: OpCrossover<I> + OpMutate<I> + OpVariation + OpSelectRandomIndividual<I,F> + OpSelect<I,F>,
-      E: Evaluator<I,F>
+      E: Evaluator<I,F>,
+      S: Fn(usize, &Population<I,F>)
 {
     let mut p = population.clone();
     p.evaluate(evaluator);
+    stat(0, &p);
 
-    for _gen in 0..num_generations {
+    for gen in 0..num_generations {
         // evaluate population. make sure that every individual has been rated.
         let mut offspring = variation_or(toolbox, &p, lambda);
         offspring.add_population(&p);
         offspring.evaluate(evaluator);
         // select from offspring the `best` individuals
         p = toolbox.select(&offspring, mu); 
+        stat(gen+1, &p);
     }
 
     return p; 
