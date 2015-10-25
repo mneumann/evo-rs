@@ -10,7 +10,9 @@ pub trait BitRepr {
 
 impl BitRepr for usize {
     #[inline(always)]
-    fn nbits(&self) -> usize { usize::BITS }
+    fn nbits(&self) -> usize {
+        usize::BITS
+    }
     #[inline(always)]
     fn get_bit(&self, pos: usize) -> bool {
         assert!(pos < self.nbits());
@@ -20,7 +22,9 @@ impl BitRepr for usize {
 
 impl BitRepr for bool {
     #[inline(always)]
-    fn nbits(&self) -> usize { 1 }
+    fn nbits(&self) -> usize {
+        1
+    }
     #[inline(always)]
     fn get_bit(&self, pos: usize) -> bool {
         assert!(pos == 0);
@@ -35,21 +39,21 @@ pub struct BitString {
 
 impl BitString {
     /// Append the lowest `nbits` bits of `value` to the BitString, msb first.
-    pub fn append_bits_msb_from<T:BitRepr>(&mut self, value: &T, nbits: usize) {
+    pub fn append_bits_msb_from<T: BitRepr>(&mut self, value: &T, nbits: usize) {
         assert!(nbits <= value.nbits());
         self.bits.reserve(nbits);
-        for i in (0 .. nbits).rev() {
+        for i in (0..nbits).rev() {
             self.bits.push(value.get_bit(i));
         }
     }
 
-    /// Flip bits with probability `prob`. 
+    /// Flip bits with probability `prob`.
     /// The default rng for floats returns numbers in [0, 1)
-    pub fn flip_bits_randomly<R:Rng>(&mut self, rng: &mut R, prob: Probability) {
+    pub fn flip_bits_randomly<R: Rng>(&mut self, rng: &mut R, prob: Probability) {
         for i in 0..self.len() {
             if rng.gen::<ProbabilityValue>().is_probable_with(prob) {
                 self.flip(i);
-            } 
+            }
         }
     }
 
@@ -85,31 +89,35 @@ impl BitString {
     }
 
     #[inline(always)]
-    pub fn len(&self) -> usize { self.bits.len() }
+    pub fn len(&self) -> usize {
+        self.bits.len()
+    }
 
     #[inline]
     pub fn with_capacity(cap: usize) -> BitString {
-        BitString {bits: BitVec::with_capacity(cap)}
+        BitString { bits: BitVec::with_capacity(cap) }
     }
 
     #[inline]
     pub fn new() -> BitString {
-        BitString {bits: BitVec::new()}
+        BitString { bits: BitVec::new() }
     }
 
     #[inline]
     pub fn from_elem(len: usize, val: bool) -> BitString {
-        BitString {bits: BitVec::from_elem(len, val)}
+        BitString { bits: BitVec::from_elem(len, val) }
     }
 
-    pub fn from_iter<I>(iter: I) -> BitString where I:Iterator<Item=bool> {
+    pub fn from_iter<I>(iter: I) -> BitString
+        where I: Iterator<Item = bool>
+    {
         let mut bs;
         match iter.size_hint() {
             (lower, Some(upper)) if upper > lower => {
-                bs = BitString::with_capacity(upper); 
+                bs = BitString::with_capacity(upper);
             }
             (lower, _) => {
-                bs = BitString::with_capacity(lower); 
+                bs = BitString::with_capacity(lower);
             }
         }
         for val in iter {
@@ -125,7 +133,9 @@ impl BitString {
 }
 
 /// One-point crossover
-pub fn crossover_one_point(point: usize, parents: (&BitString, &BitString)) -> (BitString, BitString) {
+pub fn crossover_one_point(point: usize,
+                           parents: (&BitString, &BitString))
+                           -> (BitString, BitString) {
     let (pa, pb) = parents;
     assert!(point <= pa.len());
     assert!(point <= pb.len());
@@ -160,12 +170,12 @@ fn test_bitstring() {
 
     let bs = BitString::from_elem(4, true);
     assert_eq!(4, bs.len());
-    assert_eq!(vec!(true, true, true, true), bs.to_vec());
+    assert_eq!(vec![true, true, true, true], bs.to_vec());
 
     let mut bs = BitString::new();
     bs.append_bits_msb_from(&0b11001, 4);
     assert_eq!(4, bs.len());
-    assert_eq!(vec!(true, false, false, true), bs.to_vec());
+    assert_eq!(vec![true, false, false, true], bs.to_vec());
 
 }
 
@@ -178,8 +188,8 @@ fn test_crossover_one_point() {
         pb.append_bits_msb_from(&0b0010usize, 4);
 
         let (ca, cb) = crossover_one_point(2, (&pa, &pb));
-        assert_eq!(vec!(true, false, true, false), ca.to_vec());
-        assert_eq!(vec!(false, false, true, true), cb.to_vec());
+        assert_eq!(vec![true, false, true, false], ca.to_vec());
+        assert_eq!(vec![false, false, true, true], cb.to_vec());
     }
     {
         let mut pa = BitString::new();
@@ -188,7 +198,7 @@ fn test_crossover_one_point() {
 
         let (ca, cb) = crossover_one_point(0, (&pa, &pb));
         assert!(ca.to_vec().is_empty());
-        assert_eq!(vec!(true, false, true, true), cb.to_vec());
+        assert_eq!(vec![true, false, true, true], cb.to_vec());
 
     }
 }

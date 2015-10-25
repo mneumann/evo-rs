@@ -9,7 +9,7 @@
 #![feature(num_bits_bytes)]
 extern crate bit_vec;
 extern crate rand;
-use rand::{Rng, Rand};
+use rand::{Rand, Rng};
 use std::cmp::PartialOrd;
 
 pub mod bit_string;
@@ -37,7 +37,7 @@ impl std::ops::Add<Probability> for Probability {
 }
 
 /// A probability value is a random value in the
-/// range [0.0, 1.0). 
+/// range [0.0, 1.0).
 #[derive(Copy, Clone, Debug)]
 pub struct ProbabilityValue(f32);
 
@@ -63,7 +63,7 @@ pub trait Fitness: Clone {
 
 /// Maximizes the fitness value as objective.
 #[derive(Copy, Clone, Debug)]
-pub struct MaxFitness<T:PartialOrd+Clone>(pub T);
+pub struct MaxFitness<T: PartialOrd + Clone>(pub T);
 impl<T:PartialOrd+Clone> Fitness for MaxFitness<T> {
     fn fitter_than(&self, other: &MaxFitness<T>) -> bool {
         self.0 > other.0
@@ -72,7 +72,7 @@ impl<T:PartialOrd+Clone> Fitness for MaxFitness<T> {
 
 /// Minimizes the fitness value as objective.
 #[derive(Copy, Clone, Debug)]
-pub struct MinFitness<T:PartialOrd+Clone>(pub T);
+pub struct MinFitness<T: PartialOrd + Clone>(pub T);
 impl<T:PartialOrd+Clone> Fitness for MinFitness<T> {
     fn fitter_than(&self, other: &MinFitness<T>) -> bool {
         self.0 < other.0
@@ -90,14 +90,17 @@ pub trait Evaluator<I:Individual, F:Fitness> {
 
 /// Caches the `fitness` value for an individual.
 #[derive(Clone, Debug)]
-pub struct EvaluatedIndividual<I:Individual, F:Fitness> {
+pub struct EvaluatedIndividual<I: Individual, F: Fitness> {
     individual: I,
     fitness: Option<F>,
 }
 
 impl<I:Individual, F:Fitness>  EvaluatedIndividual<I,F> {
-    pub fn new(ind: I) -> EvaluatedIndividual<I,F> {
-        EvaluatedIndividual{individual: ind, fitness: None}
+    pub fn new(ind: I) -> EvaluatedIndividual<I, F> {
+        EvaluatedIndividual {
+            individual: ind,
+            fitness: None,
+        }
     }
     pub fn fitness(&self) -> Option<F> {
         self.fitness.clone()
@@ -109,17 +112,17 @@ impl<I:Individual, F:Fitness>  EvaluatedIndividual<I,F> {
 
 /// Manages a population of individuals.
 #[derive(Clone, Debug)]
-pub struct Population<I:Individual, F:Fitness> {
-    population: Vec<EvaluatedIndividual<I,F>>
+pub struct Population<I: Individual, F: Fitness> {
+    population: Vec<EvaluatedIndividual<I, F>>,
 }
 
 impl<I:Individual, F:Fitness> Population<I,F> {
-    pub fn new() -> Population<I,F> {
-        Population{population: Vec::new()}
+    pub fn new() -> Population<I, F> {
+        Population { population: Vec::new() }
     }
 
-    pub fn with_capacity(capa: usize) -> Population<I,F> {
-        Population{population: Vec::with_capacity(capa)}
+    pub fn with_capacity(capa: usize) -> Population<I, F> {
+        Population { population: Vec::with_capacity(capa) }
     }
 
     pub fn len(&self) -> usize {
@@ -154,24 +157,28 @@ impl<I:Individual, F:Fitness> Population<I,F> {
         self.population.push(EvaluatedIndividual::new(ind));
     }
 
-    pub fn add(&mut self, ind: EvaluatedIndividual<I,F>) {
+    pub fn add(&mut self, ind: EvaluatedIndividual<I, F>) {
         self.population.push(ind);
     }
 
     /// Evaluates the whole population, i.e. determines the fitness of
     /// each `individual` (unless already calculated).
     /// Returns the number of evaluations performed.
-    pub fn evaluate<E>(&mut self, evaluator: &E) -> usize where E:Evaluator<I,F> {
+    pub fn evaluate<E>(&mut self, evaluator: &E) -> usize
+        where E: Evaluator<I, F>
+    {
         let mut nevals = 0;
         for i in self.population.iter_mut() {
-            if i.fitness.is_some() { continue; }
+            if i.fitness.is_some() {
+                continue;
+            }
             i.fitness = Some(evaluator.fitness(&i.individual));
             nevals += 1;
         }
         return nevals;
     }
 
-    fn add_population(&mut self, p: &Population<I,F>) {
+    fn add_population(&mut self, p: &Population<I, F>) {
         for ind in p.population.iter() {
             self.add(ind.clone());
         }
@@ -185,9 +192,14 @@ impl<I:Individual, F:Fitness> Population<I,F> {
 /// NOTE: We are not using `sample(rng, 0..n, k)` as it is *very* expensive.
 /// Instead we call `rng.gen_range()` k-times. The drawn items could be the same,
 /// but the probability is very low if `n` high compared to `k`.
-pub fn tournament_selection<R:Rng, F, E>(rng: &mut R, evaluate: E, n: usize, k: usize) -> Option<(usize, F)>
-  where F:Fitness,
-        E:Fn(usize) -> F {
+pub fn tournament_selection<R: Rng, F, E>(rng: &mut R,
+                                          evaluate: E,
+                                          n: usize,
+                                          k: usize)
+                                          -> Option<(usize, F)>
+    where F: Fitness,
+          E: Fn(usize) -> F
+{
     assert!(n >= k);
 
     let mut best: Option<(usize, F)> = None;
@@ -199,11 +211,13 @@ pub fn tournament_selection<R:Rng, F, E>(rng: &mut R, evaluate: E, n: usize, k: 
             Some((_, ref current_best_fitness)) => {
                 fitness.fitter_than(current_best_fitness)
             }
-            None => { true }
-       };
-       if better {
-           best = Some((i, fitness));
-       }
+            None => {
+                true
+            }
+        };
+        if better {
+            best = Some((i, fitness));
+        }
     }
     return best;
 }
@@ -231,18 +245,23 @@ pub trait OpVariation {
 
 /// Selects a random individual from the population.
 pub trait OpSelectRandomIndividual<I: Individual, F: Fitness> {
-    fn select_random_individual<'a>(&mut self, population: &'a Population<I, F>) -> &'a EvaluatedIndividual<I, F>;
+    fn select_random_individual<'a>(&mut self,
+                                    population: &'a Population<I, F>)
+                                    -> &'a EvaluatedIndividual<I, F>;
 }
 
 /// Produce new generation through selection of \mu individuals from population.
 pub trait OpSelect<I: Individual, F: Fitness> {
-    fn select(&mut self, population: &Population<I,F>, mu: usize) -> Population<I,F>;
+    fn select(&mut self, population: &Population<I, F>, mu: usize) -> Population<I, F>;
 }
 
-pub fn variation_or<I, F, T>(toolbox: &mut T, population: &Population<I,F>, lambda: usize) -> Population<I,F>
-where I: Individual,
-      F: Fitness,
-      T: OpCrossover<I> + OpMutate<I> + OpVariation + OpSelectRandomIndividual<I,F>
+pub fn variation_or<I, F, T>(toolbox: &mut T,
+                             population: &Population<I, F>,
+                             lambda: usize)
+                             -> Population<I, F>
+    where I: Individual,
+          F: Fitness,
+          T: OpCrossover<I> + OpMutate<I> + OpVariation + OpSelectRandomIndividual<I, F>
 {
     let mut offspring = Population::with_capacity(lambda);
     // Each step produces exactly one child.
@@ -258,7 +277,7 @@ where I: Individual,
                 EvaluatedIndividual::new(child1)
             }
             VariationMethod::Mutation => {
-                // select a single individual and mutate it. 
+                // select a single individual and mutate it.
                 let ind = toolbox.select_random_individual(population);
                 let child = toolbox.mutate(&ind.individual);
                 EvaluatedIndividual::new(child)
@@ -276,7 +295,8 @@ where I: Individual,
 // The (\mu + \lambda) algorithm.
 // From `population`, \lambda offspring is produced, through either
 // mutation, crossover or random reproduction.
-// For the next generation, \mu individuals are selected from the \mu + \lambda (parents and offspring).
+// For the next generation, \mu individuals are selected from the \mu + \lambda
+// (parents and offspring).
 pub fn ea_mu_plus_lambda<I,F,T,E,S>(toolbox: &mut T, evaluator: &E, population: &Population<I,F>, mu: usize, lambda: usize, num_generations: usize, stat: S)
     -> Population<I,F>
 where I: Individual,
@@ -296,11 +316,11 @@ where I: Individual,
         offspring.add_population(&p);
         nevals += offspring.evaluate(evaluator);
         // select from offspring the `best` individuals
-        p = toolbox.select(&offspring, mu); 
-        stat(gen+1, &p);
+        p = toolbox.select(&offspring, mu);
+        stat(gen + 1, &p);
     }
 
     let _ = nevals;
 
-    return p; 
+    return p;
 }
