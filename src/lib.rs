@@ -12,6 +12,7 @@ extern crate rand;
 extern crate simple_parallel;
 use rand::{Rand, Rng};
 use std::cmp::PartialOrd;
+use simple_parallel::Pool;
 
 pub mod bit_string;
 
@@ -180,8 +181,8 @@ impl<I:Individual, F:Fitness> Population<I,F> {
         return nevals;
     }
 
-    /// Evaluate the population in parallel using a pool of `nthreads`.
-    pub fn evaluate_in_parallel<E>(&mut self, evaluator: &E, nthreads: usize) -> usize
+    /// Evaluate the population in parallel using the threadpool `pool`.
+    pub fn evaluate_in_parallel<E>(&mut self, evaluator: &E, pool: &mut Pool) -> usize
         where E: Evaluator<I, F>
     {
         const CHUNK_SIZE: usize = 10;
@@ -194,7 +195,6 @@ impl<I:Individual, F:Fitness> Population<I,F> {
         }
 
         // XXX split population into two arrays. one evaluated, one not evaluated. this should speed up parallel evaluation a lot.
-        let mut pool = simple_parallel::Pool::new(nthreads);
         pool.for_(self.population.chunks_mut(CHUNK_SIZE), |chunk| {
             for ind in chunk.iter_mut() {
                 if ind.fitness.is_some() { continue; }
@@ -334,14 +334,16 @@ where I: Individual,
 {
     let mut nevals = 0;
     let mut p = population.clone();
-    nevals += p.evaluate_in_parallel(evaluator, 8);
+    let mut pool = simple_parallel::Pool::new(8);
+
+    nevals += p.evaluate_in_parallel(evaluator, &mut pool);
     stat(0, &p);
 
     for gen in 0..num_generations {
         // evaluate population. make sure that every individual has been rated.
         let mut offspring = variation_or(toolbox, &p, lambda);
         offspring.add_population(&p);
-        nevals += offspring.evaluate_in_parallel(evaluator, 8);
+        nevals += offspring.evaluate_in_parallel(evaluator, &mut pool);
         // select from offspring the `best` individuals
         p = toolbox.select(&offspring, mu);
         stat(gen + 1, &p);
