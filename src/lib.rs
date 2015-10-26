@@ -9,6 +9,7 @@
 #![feature(num_bits_bytes)]
 extern crate bit_vec;
 extern crate rand;
+extern crate simple_parallel;
 use rand::{Rand, Rng};
 use std::cmp::PartialOrd;
 
@@ -57,14 +58,14 @@ impl ProbabilityValue {
 }
 
 /// Represents a fitness value.
-pub trait Fitness: Clone {
+pub trait Fitness: Clone+Send {
     fn fitter_than(&self, other: &Self) -> bool;
 }
 
 /// Maximizes the fitness value as objective.
 #[derive(Copy, Clone, Debug)]
-pub struct MaxFitness<T: PartialOrd + Clone>(pub T);
-impl<T:PartialOrd+Clone> Fitness for MaxFitness<T> {
+pub struct MaxFitness<T: PartialOrd + Clone + Send>(pub T);
+impl<T:PartialOrd+Clone+Send> Fitness for MaxFitness<T> {
     fn fitter_than(&self, other: &MaxFitness<T>) -> bool {
         self.0 > other.0
     }
@@ -72,19 +73,19 @@ impl<T:PartialOrd+Clone> Fitness for MaxFitness<T> {
 
 /// Minimizes the fitness value as objective.
 #[derive(Copy, Clone, Debug)]
-pub struct MinFitness<T: PartialOrd + Clone>(pub T);
-impl<T:PartialOrd+Clone> Fitness for MinFitness<T> {
+pub struct MinFitness<T: PartialOrd + Clone + Send>(pub T);
+impl<T:PartialOrd+Clone+Send> Fitness for MinFitness<T> {
     fn fitter_than(&self, other: &MinFitness<T>) -> bool {
         self.0 < other.0
     }
 }
 
 /// Represents an individual in a Population.
-pub trait Individual: Clone {
+pub trait Individual: Clone+Send {
 }
 
 /// Evaluates the fitness of an Individual.
-pub trait Evaluator<I:Individual, F:Fitness> {
+pub trait Evaluator<I:Individual, F:Fitness>: Sync {
     fn fitness(&self, individual: &I) -> F;
 }
 
@@ -116,6 +117,7 @@ pub struct Population<I: Individual, F: Fitness> {
     population: Vec<EvaluatedIndividual<I, F>>,
 }
 
+// XXX: Have Population and EvaluatedPopulation. This avoids having two arrays.
 impl<I:Individual, F:Fitness> Population<I,F> {
     pub fn new() -> Population<I, F> {
         Population { population: Vec::new() }
@@ -178,6 +180,31 @@ impl<I:Individual, F:Fitness> Population<I,F> {
         return nevals;
     }
 
+    /// Evaluate the population in parallel using a pool of `nthreads`.
+    pub fn evaluate_in_parallel<E>(&mut self, evaluator: &E, nthreads: usize) -> usize
+        where E: Evaluator<I, F>
+    {
+        const CHUNK_SIZE: usize = 10;
+
+        let mut nevals = 0;
+        for i in self.population.iter() {
+            if i.fitness.is_none() {
+                nevals += 1;
+            }
+        }
+
+        // XXX split population into two arrays. one evaluated, one not evaluated. this should speed up parallel evaluation a lot.
+        let mut pool = simple_parallel::Pool::new(nthreads);
+        pool.for_(self.population.chunks_mut(CHUNK_SIZE), |chunk| {
+            for ind in chunk.iter_mut() {
+                if ind.fitness.is_some() { continue; }
+                ind.fitness = Some(evaluator.fitness(&ind.individual));
+            }
+        });
+        
+        return nevals;
+    }
+
     fn add_population(&mut self, p: &Population<I, F>) {
         for ind in p.population.iter() {
             self.add(ind.clone());
@@ -193,7 +220,7 @@ impl<I:Individual, F:Fitness> Population<I,F> {
 /// Instead we call `rng.gen_range()` k-times. The drawn items could be the same,
 /// but the probability is very low if `n` high compared to `k`.
 pub fn tournament_selection<R: Rng, F, E>(rng: &mut R,
-                                          evaluate: E,
+                                          fitness: E,
                                           n: usize,
                                           k: usize)
                                           -> Option<(usize, F)>
@@ -206,7 +233,7 @@ pub fn tournament_selection<R: Rng, F, E>(rng: &mut R,
 
     for _ in 0..k {
         let i = rng.gen_range(0, n);
-        let fitness = evaluate(i);
+        let fitness = fitness(i);
         let better = match best {
             Some((_, ref current_best_fitness)) => {
                 fitness.fitter_than(current_best_fitness)
@@ -302,19 +329,19 @@ pub fn ea_mu_plus_lambda<I,F,T,E,S>(toolbox: &mut T, evaluator: &E, population: 
 where I: Individual,
       F: Fitness,
       T: OpCrossover<I> + OpMutate<I> + OpVariation + OpSelectRandomIndividual<I,F> + OpSelect<I,F>,
-      E: Evaluator<I,F>,
+      E: Evaluator<I,F>+Sync,
       S: Fn(usize, &Population<I,F>)
 {
     let mut nevals = 0;
     let mut p = population.clone();
-    nevals += p.evaluate(evaluator);
+    nevals += p.evaluate_in_parallel(evaluator, 8);
     stat(0, &p);
 
     for gen in 0..num_generations {
         // evaluate population. make sure that every individual has been rated.
         let mut offspring = variation_or(toolbox, &p, lambda);
         offspring.add_population(&p);
-        nevals += offspring.evaluate(evaluator);
+        nevals += offspring.evaluate_in_parallel(evaluator, 8);
         // select from offspring the `best` individuals
         p = toolbox.select(&offspring, mu);
         stat(gen + 1, &p);
