@@ -53,6 +53,7 @@ impl Rand for ProbabilityValue {
 }
 
 impl ProbabilityValue {
+    #[inline]
     pub fn is_probable_with(self, pb: Probability) -> bool {
         self.0 < pb.0
     }
@@ -67,6 +68,7 @@ pub trait Fitness: Clone+Send {
 #[derive(Copy, Clone, Debug)]
 pub struct MaxFitness<T: PartialOrd + Clone + Send>(pub T);
 impl<T:PartialOrd+Clone+Send> Fitness for MaxFitness<T> {
+    #[inline(always)]
     fn fitter_than(&self, other: &MaxFitness<T>) -> bool {
         self.0 > other.0
     }
@@ -76,6 +78,7 @@ impl<T:PartialOrd+Clone+Send> Fitness for MaxFitness<T> {
 #[derive(Copy, Clone, Debug)]
 pub struct MinFitness<T: PartialOrd + Clone + Send>(pub T);
 impl<T:PartialOrd+Clone+Send> Fitness for MinFitness<T> {
+    #[inline(always)]
     fn fitter_than(&self, other: &MinFitness<T>) -> bool {
         self.0 < other.0
     }
@@ -104,9 +107,11 @@ impl<I:Individual, F:Fitness>  EvaluatedIndividual<I,F> {
             fitness: None,
         }
     }
+    #[inline(always)]
     pub fn fitness(&self) -> Option<F> {
         self.fitness.clone()
     }
+    #[inline(always)]
     pub fn individual<'a>(&'a self) -> &'a I {
         &self.individual
     }
@@ -119,7 +124,8 @@ pub struct Population<I: Individual, F: Fitness> {
 }
 
 // XXX: Have Population and EvaluatedPopulation. This avoids having two arrays.
-impl<I:Individual, F:Fitness> Population<I,F> {
+impl<I:Individual, F:Fitness> Population<I,F>
+{
     pub fn new() -> Population<I, F> {
         Population { population: Vec::new() }
     }
@@ -128,6 +134,7 @@ impl<I:Individual, F:Fitness> Population<I,F> {
         Population { population: Vec::with_capacity(capa) }
     }
 
+    #[inline(always)]
     pub fn len(&self) -> usize {
         self.population.len()
     }
@@ -152,16 +159,22 @@ impl<I:Individual, F:Fitness> Population<I,F> {
         return fittest;
     }
 
-    pub fn get_ref<'a>(&'a self, idx: usize) -> &'a EvaluatedIndividual<I, F> {
-        &self.population[idx]
+    #[inline]
+    pub fn get_individual(&self, idx: usize) -> &I {
+        &self.population[idx].individual
+    }
+
+    #[inline]
+    pub fn get_fitness(&self, idx: usize) -> F {
+        (&self.population[idx]).fitness.clone().unwrap()
     }
 
     pub fn add_individual(&mut self, ind: I) {
         self.population.push(EvaluatedIndividual::new(ind));
     }
 
-    pub fn add(&mut self, ind: EvaluatedIndividual<I, F>) {
-        self.population.push(ind);
+    pub fn add_individual_with_fitness(&mut self, ind: I, fitness: F) {
+        self.population.push(EvaluatedIndividual{individual: ind, fitness: Some(fitness)});
     }
 
     /// Evaluates the whole population, i.e. determines the fitness of
@@ -185,23 +198,27 @@ impl<I:Individual, F:Fitness> Population<I,F> {
     pub fn evaluate_in_parallel<E>(&mut self, evaluator: &E, pool: &mut Pool) -> usize
         where E: Evaluator<I, F>
     {
-        const CHUNK_SIZE: usize = 10;
+//        const CHUNK_SIZE: usize = 5;
 
         let mut nevals = 0;
-        for i in self.population.iter() {
+/*        for i in self.population.iter() {
             if i.fitness.is_none() {
                 nevals += 1;
             }
         }
-
+*/
         // XXX split population into two arrays. one evaluated, one not evaluated. this should speed up parallel evaluation a lot.
-        pool.for_(self.population.chunks_mut(CHUNK_SIZE), |chunk| {
+/*        pool.for_(self.population.chunks_mut(CHUNK_SIZE), |chunk| {
             for ind in chunk.iter_mut() {
                 if ind.fitness.is_some() { continue; }
                 ind.fitness = Some(evaluator.fitness(&ind.individual));
             }
         });
-        
+*/
+        pool.for_(self.population.iter_mut(), |ind| {
+            ind.fitness = Some(evaluator.fitness(&ind.individual));
+        });
+
         return nevals;
     }
 
@@ -217,6 +234,7 @@ impl<I:Individual, F:Fitness> Population<I,F> {
 /// NOTE: We are not using `sample(rng, 0..n, k)` as it is *very* expensive.
 /// Instead we call `rng.gen_range()` k-times. The drawn items could be the same,
 /// but the probability is very low if `n` high compared to `k`.
+#[inline]
 pub fn tournament_selection<R: Rng, F, E>(rng: &mut R,
                                           fitness: E,
                                           n: usize,
@@ -272,7 +290,7 @@ pub trait OpVariation {
 pub trait OpSelectRandomIndividual<I: Individual, F: Fitness> {
     fn select_random_individual<'a>(&mut self,
                                     population: &'a Population<I, F>)
-                                    -> &'a EvaluatedIndividual<I, F>;
+                                    -> usize; // IndividualIndex
 }
 
 /// Produce new generation through selection of \mu individuals from population.
@@ -299,20 +317,20 @@ pub fn variation_or<I, F, T>(toolbox: &mut T,
             VariationMethod::Crossover => {
                 // select two individuals and mate them.
                 // only the first offspring is used, the second is thrown away.
-                let parent1 = toolbox.select_random_individual(population);
-                let parent2 = toolbox.select_random_individual(population);
-                let (child1, _child2) = toolbox.crossover(&parent1.individual, &parent2.individual);
+                let parent1_idx = toolbox.select_random_individual(population);
+                let parent2_idx = toolbox.select_random_individual(population);
+                let (child1, _child2) = toolbox.crossover(population.get_individual(parent1_idx), population.get_individual(parent2_idx));
                 unrated_offspring.add_individual(child1);
             }
             VariationMethod::Mutation => {
                 // select a single individual and mutate it.
-                let ind = toolbox.select_random_individual(population);
-                let child = toolbox.mutate(&ind.individual);
+                let ind_idx = toolbox.select_random_individual(population);
+                let child = toolbox.mutate(population.get_individual(ind_idx));
                 unrated_offspring.add_individual(child);
             }
             VariationMethod::Reproduction => {
-                let ind = toolbox.select_random_individual(population);
-                rated_offspring.add(ind.clone());
+                let ind_idx = toolbox.select_random_individual(population);
+                rated_offspring.add_individual_with_fitness(population.get_individual(ind_idx).clone(), population.get_fitness(ind_idx));
             }
         }
     }
@@ -324,6 +342,7 @@ pub fn variation_or<I, F, T>(toolbox: &mut T,
 // mutation, crossover or random reproduction.
 // For the next generation, \mu individuals are selected from the \mu + \lambda
 // (parents and offspring).
+#[inline]
 pub fn ea_mu_plus_lambda<I,F,T,E,S>(toolbox: &mut T, evaluator: &E, mut population: Population<I,F>, mu: usize, lambda: usize, num_generations: usize, stat: S)
     -> Population<I,F>
 where I: Individual,

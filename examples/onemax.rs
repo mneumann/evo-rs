@@ -11,7 +11,6 @@ use evo::{
     Fitness,
     Individual,
     Population,
-    EvaluatedIndividual,
     Evaluator,
     OpCrossover,
     OpMutate,
@@ -94,8 +93,8 @@ impl OpVariation for Toolbox {
 
 // XXX: No need for Fitness
 impl<I: Individual, F: Fitness> OpSelectRandomIndividual<I, F> for Toolbox {
-    fn select_random_individual<'a>(&mut self, population: &'a Population<I,F>) -> &'a EvaluatedIndividual<I, F> {
-        population.get_ref(self.rng.gen_range(0, population.len()))
+    fn select_random_individual(&mut self, population: &Population<I,F>) -> usize {
+        self.rng.gen_range(0, population.len())
     }
 }
 
@@ -103,8 +102,8 @@ impl<I: Individual, F: Fitness> OpSelect<I, F> for Toolbox {
     fn select(&mut self, population: &Population<I,F>, mu: usize) -> Population<I,F> {
         let mut pop = Population::with_capacity(mu);
         for _ in 0..mu {
-            let x = tournament_selection(&mut self.rng, |idx| { population.get_ref(idx).fitness().unwrap() }, population.len(), self.tournament_size).unwrap();
-            pop.add(population.get_ref(x.0).clone());
+            let (best_idx, f) = tournament_selection(&mut self.rng, |idx| { population.get_fitness(idx) }, population.len(), self.tournament_size).unwrap();
+            pop.add_individual_with_fitness(population.get_individual(best_idx).clone(), f);
         }
         assert!(pop.len() == mu);
         return pop;
@@ -114,7 +113,7 @@ impl<I: Individual, F: Fitness> OpSelect<I, F> for Toolbox {
 fn print_stat(p: &Population<MyGenome, MaxFitness<usize>>) {
     let mut fitnesses = Vec::new();
     for i in 0..p.len() {
-        let f = p.get_ref(i).fitness().unwrap().0;
+        let f = p.get_fitness(i).0;
         fitnesses.push(f);
     }
     let min = fitnesses.iter().fold(fitnesses[0], |b, &i| cmp::min(b, i));
