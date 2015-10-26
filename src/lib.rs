@@ -205,10 +205,8 @@ impl<I:Individual, F:Fitness> Population<I,F> {
         return nevals;
     }
 
-    fn add_population(&mut self, p: &Population<I, F>) {
-        for ind in p.population.iter() {
-            self.add(ind.clone());
-        }
+    fn extend_with(&mut self, p: Population<I, F>) {
+        self.population.extend(p.population);
     }
 }
 
@@ -285,38 +283,40 @@ pub trait OpSelect<I: Individual, F: Fitness> {
 pub fn variation_or<I, F, T>(toolbox: &mut T,
                              population: &Population<I, F>,
                              lambda: usize)
-                             -> Population<I, F>
+                             -> (Population<I,F>, Population<I,F>)
     where I: Individual,
           F: Fitness,
           T: OpCrossover<I> + OpMutate<I> + OpVariation + OpSelectRandomIndividual<I, F>
 {
-    let mut offspring = Population::with_capacity(lambda);
+    // We assume that most offspring is unrated and only a small amount of already rated offspring.
+    let mut unrated_offspring = Population::with_capacity(lambda);
+    let mut rated_offspring = Population::new();
+
     // Each step produces exactly one child.
     for _ in 0..lambda {
         let method = toolbox.variation();
-        let child = match method {
+        match method {
             VariationMethod::Crossover => {
                 // select two individuals and mate them.
                 // only the first offspring is used, the second is thrown away.
                 let parent1 = toolbox.select_random_individual(population);
                 let parent2 = toolbox.select_random_individual(population);
                 let (child1, _child2) = toolbox.crossover(&parent1.individual, &parent2.individual);
-                EvaluatedIndividual::new(child1)
+                unrated_offspring.add_individual(child1);
             }
             VariationMethod::Mutation => {
                 // select a single individual and mutate it.
                 let ind = toolbox.select_random_individual(population);
                 let child = toolbox.mutate(&ind.individual);
-                EvaluatedIndividual::new(child)
+                unrated_offspring.add_individual(child);
             }
             VariationMethod::Reproduction => {
                 let ind = toolbox.select_random_individual(population);
-                ind.clone()
+                rated_offspring.add(ind.clone());
             }
-        };
-        offspring.add(child);
+        }
     }
-    return offspring;
+    return (unrated_offspring, rated_offspring);
 }
 
 // The (\mu + \lambda) algorithm.
@@ -324,7 +324,7 @@ pub fn variation_or<I, F, T>(toolbox: &mut T,
 // mutation, crossover or random reproduction.
 // For the next generation, \mu individuals are selected from the \mu + \lambda
 // (parents and offspring).
-pub fn ea_mu_plus_lambda<I,F,T,E,S>(toolbox: &mut T, evaluator: &E, population: &Population<I,F>, mu: usize, lambda: usize, num_generations: usize, stat: S)
+pub fn ea_mu_plus_lambda<I,F,T,E,S>(toolbox: &mut T, evaluator: &E, mut population: Population<I,F>, mu: usize, lambda: usize, num_generations: usize, stat: S)
     -> Population<I,F>
 where I: Individual,
       F: Fitness,
@@ -333,23 +333,27 @@ where I: Individual,
       S: Fn(usize, &Population<I,F>)
 {
     let mut nevals = 0;
-    let mut p = population.clone();
     let mut pool = simple_parallel::Pool::new(8);
 
-    nevals += p.evaluate_in_parallel(evaluator, &mut pool);
-    stat(0, &p);
+    nevals += population.evaluate_in_parallel(evaluator, &mut pool);
+    stat(0, &population);
 
     for gen in 0..num_generations {
         // evaluate population. make sure that every individual has been rated.
-        let mut offspring = variation_or(toolbox, &p, lambda);
-        offspring.add_population(&p);
-        nevals += offspring.evaluate_in_parallel(evaluator, &mut pool);
+        let (mut unrated_offspring, rated_offspring) = variation_or(toolbox, &population, lambda);
+
+        nevals += unrated_offspring.evaluate_in_parallel(evaluator, &mut pool);
+
+        population.extend_with(unrated_offspring); // this is now rated.
+        population.extend_with(rated_offspring);
+
         // select from offspring the `best` individuals
-        p = toolbox.select(&offspring, mu);
+        let p = toolbox.select(&population, mu);
         stat(gen + 1, &p);
+        population = p;
     }
 
     let _ = nevals;
 
-    return p;
+    return population;
 }

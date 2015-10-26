@@ -155,5 +155,5 @@ fn main() {
        print_stat(&pop);
    }
 
-   let _optimum = evo::ea_mu_plus_lambda(&mut toolbox, &evaluator, &initial_population, MU, LAMBDA, NGEN, stat);
+   let _optimum = evo::ea_mu_plus_lambda(&mut toolbox, &evaluator, initial_population, MU, LAMBDA, NGEN, stat);
 }
