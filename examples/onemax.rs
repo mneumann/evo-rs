@@ -125,7 +125,7 @@ fn print_stat(p: &Population<MyGenome, MaxFitness<usize>>) {
 
 fn main() {
    const BITS: usize = 100;
-   const MU: usize = 300;
+   const MU: usize = 600;
    const LAMBDA: usize = 300;
    const NGEN: usize = 100;
 
@@ -138,8 +138,6 @@ fn main() {
    }
    let evaluator = MyEval;
    initial_population.evaluate(&evaluator);
-   //print_stat(&initial_population);
-   //println!("{:?}", initial_population);
 
    let mut toolbox = Toolbox {
         rng: Box::new(rng),
@@ -149,10 +147,10 @@ fn main() {
         tournament_size: 3,
    };
 
-   fn stat(gen:usize, pop: &Population<MyGenome, MaxFitness<usize>>) {
-       print!("{} ", gen);
+   fn stat(gen:usize, nevals:usize, pop: &Population<MyGenome, MaxFitness<usize>>) {
+       print!("{:04} {:04}", gen, nevals);
        print_stat(&pop);
    }
 
-   let _optimum = evo::ea_mu_plus_lambda(&mut toolbox, &evaluator, initial_population, MU, LAMBDA, NGEN, stat);
+   let _optimum = evo::ea_mu_plus_lambda(&mut toolbox, &evaluator, initial_population, MU, LAMBDA, NGEN, stat, 8, 10);
 }

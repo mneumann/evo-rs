@@ -107,14 +107,6 @@ impl<I:Individual, F:Fitness>  EvaluatedIndividual<I,F> {
             fitness: None,
         }
     }
-    #[inline(always)]
-    pub fn fitness(&self) -> Option<F> {
-        self.fitness.clone()
-    }
-    #[inline(always)]
-    pub fn individual<'a>(&'a self) -> &'a I {
-        &self.individual
-    }
 }
 
 /// Manages a population of individuals.
@@ -195,28 +187,22 @@ impl<I:Individual, F:Fitness> Population<I,F>
     }
 
     /// Evaluate the population in parallel using the threadpool `pool`.
-    pub fn evaluate_in_parallel<E>(&mut self, evaluator: &E, pool: &mut Pool) -> usize
+    pub fn evaluate_in_parallel<E>(&mut self, evaluator: &E, pool: &mut Pool, chunk_size: usize) -> usize
         where E: Evaluator<I, F>
     {
-//        const CHUNK_SIZE: usize = 5;
-
         let mut nevals = 0;
-/*        for i in self.population.iter() {
+        for i in self.population.iter() {
             if i.fitness.is_none() {
                 nevals += 1;
             }
         }
-*/
+
         // XXX split population into two arrays. one evaluated, one not evaluated. this should speed up parallel evaluation a lot.
-/*        pool.for_(self.population.chunks_mut(CHUNK_SIZE), |chunk| {
+        pool.for_(self.population.chunks_mut(chunk_size), |chunk| {
             for ind in chunk.iter_mut() {
                 if ind.fitness.is_some() { continue; }
                 ind.fitness = Some(evaluator.fitness(&ind.individual));
             }
-        });
-*/
-        pool.for_(self.population.iter_mut(), |ind| {
-            ind.fitness = Some(evaluator.fitness(&ind.individual));
         });
 
         return nevals;
@@ -343,36 +329,33 @@ pub fn variation_or<I, F, T>(toolbox: &mut T,
 // For the next generation, \mu individuals are selected from the \mu + \lambda
 // (parents and offspring).
 #[inline]
-pub fn ea_mu_plus_lambda<I,F,T,E,S>(toolbox: &mut T, evaluator: &E, mut population: Population<I,F>, mu: usize, lambda: usize, num_generations: usize, stat: S)
+pub fn ea_mu_plus_lambda<I,F,T,E,S>(toolbox: &mut T, evaluator: &E, mut population: Population<I,F>, mu: usize, lambda: usize, num_generations: usize, stat: S, numthreads: usize, chunksize: usize)
     -> Population<I,F>
 where I: Individual,
       F: Fitness,
       T: OpCrossover<I> + OpMutate<I> + OpVariation + OpSelectRandomIndividual<I,F> + OpSelect<I,F>,
       E: Evaluator<I,F>+Sync,
-      S: Fn(usize, &Population<I,F>)
+      S: Fn(usize, usize, &Population<I,F>)
 {
-    let mut nevals = 0;
-    let mut pool = simple_parallel::Pool::new(8);
+    let mut pool = simple_parallel::Pool::new(numthreads);
 
-    nevals += population.evaluate_in_parallel(evaluator, &mut pool);
-    stat(0, &population);
+    let nevals = population.evaluate_in_parallel(evaluator, &mut pool, chunksize);
+    stat(0, nevals, &population);
 
     for gen in 0..num_generations {
         // evaluate population. make sure that every individual has been rated.
         let (mut unrated_offspring, rated_offspring) = variation_or(toolbox, &population, lambda);
 
-        nevals += unrated_offspring.evaluate_in_parallel(evaluator, &mut pool);
+        let nevals = unrated_offspring.evaluate_in_parallel(evaluator, &mut pool, chunksize);
 
         population.extend_with(unrated_offspring); // this is now rated.
         population.extend_with(rated_offspring);
 
         // select from offspring the `best` individuals
         let p = toolbox.select(&population, mu);
-        stat(gen + 1, &p);
+        stat(gen + 1, nevals, &p);
         population = p;
     }
-
-    let _ = nevals;
 
     return population;
 }
