@@ -1,7 +1,12 @@
 [package]
 name = "evo"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["Michael Neumann <mneumann@ntecs.de>"]
+
+license = "MIT"
+repository = "https://github.com/mneumann/evo-rs"
+description = "Evolutionary Algorithm Library for Rust"
+keywords = ["evolution", "genetic", "algorithm"]
 
 [dependencies]
 bit-vec = "^0.4.2"
