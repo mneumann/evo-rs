@@ -12,7 +12,7 @@ use evo::{
     Individual,
     Population,
     Evaluator,
-    OpCrossover,
+    OpCrossover1,
     OpMutate,
     OpSelectRandomIndividual,
     OpSelect,
@@ -60,11 +60,11 @@ struct Toolbox {
     tournament_size: usize,
 }
 
-impl OpCrossover<MyGenome> for Toolbox {
-    fn crossover(&mut self, male: &MyGenome, female: &MyGenome) -> (MyGenome, MyGenome) { 
+impl OpCrossover1<MyGenome> for Toolbox {
+    fn crossover1(&mut self, male: &MyGenome, female: &MyGenome) -> MyGenome {
            let point = self.rng.gen_range(0, cmp::min(male.bits.len(), female.bits.len()));
-           let (c1, c2) = crossover_one_point(point, (&male.bits, &female.bits));
-           (MyGenome::new(c1), MyGenome::new(c2))
+           let (c1, _c2) = crossover_one_point(point, (&male.bits, &female.bits));
+           MyGenome::new(c1)
     }
 }
 

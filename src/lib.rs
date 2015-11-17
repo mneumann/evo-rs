@@ -257,6 +257,11 @@ pub enum VariationMethod {
     Reproduction,
 }
 
+/// Mates two individual, producing one child.
+pub trait OpCrossover1<I: Individual> {
+    fn crossover1(&mut self, parent1: &I, parent2: &I) -> I;
+}
+
 /// Mates two individual, producing two children.
 pub trait OpCrossover<I: Individual> {
     fn crossover(&mut self, parent1: &I, parent2: &I) -> (I, I);
@@ -290,7 +295,7 @@ pub fn variation_or<I, F, T>(toolbox: &mut T,
                              -> (Population<I,F>, Population<I,F>)
     where I: Individual,
           F: Fitness,
-          T: OpCrossover<I> + OpMutate<I> + OpVariation + OpSelectRandomIndividual<I, F>
+          T: OpCrossover1<I> + OpMutate<I> + OpVariation + OpSelectRandomIndividual<I, F>
 {
     // We assume that most offspring is unrated and only a small amount of already rated offspring.
     let mut unrated_offspring = Population::with_capacity(lambda);
@@ -305,7 +310,7 @@ pub fn variation_or<I, F, T>(toolbox: &mut T,
                 // only the first offspring is used, the second is thrown away.
                 let parent1_idx = toolbox.select_random_individual(population);
                 let parent2_idx = toolbox.select_random_individual(population);
-                let (child1, _child2) = toolbox.crossover(population.get_individual(parent1_idx), population.get_individual(parent2_idx));
+                let child1 = toolbox.crossover1(population.get_individual(parent1_idx), population.get_individual(parent2_idx));
                 unrated_offspring.add_individual(child1);
             }
             VariationMethod::Mutation => {
@@ -333,7 +338,7 @@ pub fn ea_mu_plus_lambda<I,F,T,E,S>(toolbox: &mut T, evaluator: &E, mut populati
     -> Population<I,F>
 where I: Individual,
       F: Fitness,
-      T: OpCrossover<I> + OpMutate<I> + OpVariation + OpSelectRandomIndividual<I,F> + OpSelect<I,F>,
+      T: OpCrossover1<I> + OpMutate<I> + OpVariation + OpSelectRandomIndividual<I,F> + OpSelect<I,F>,
       E: Evaluator<I,F>+Sync,
       S: Fn(usize, usize, &Population<I,F>)
 {
