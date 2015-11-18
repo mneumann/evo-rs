@@ -161,6 +161,10 @@ impl<I:Individual, F:Fitness> Population<I,F>
         (&self.population[idx]).fitness.clone().unwrap()
     }
 
+    pub fn fitter_than(&self, i1: usize, i2: usize) -> bool {
+        (&self.population[i1]).fitness.as_ref().unwrap().fitter_than((&self.population[i2]).fitness.as_ref().unwrap())
+    }
+
     pub fn add_individual(&mut self, ind: I) {
         self.population.push(EvaluatedIndividual::new(ind));
     }
@@ -219,35 +223,28 @@ impl<I:Individual, F:Fitness> Population<I,F>
 ///
 /// NOTE: We are not using `sample(rng, 0..n, k)` as it is *very* expensive.
 /// Instead we call `rng.gen_range()` k-times. The drawn items could be the same,
-/// but the probability is very low if `n` high compared to `k`.
+/// but the probability is very low if `n` is high compared to `k`.
 #[inline]
-pub fn tournament_selection<R: Rng, F, E>(rng: &mut R,
-                                          fitness: E,
+pub fn tournament_selection_fast<R: Rng, F>(rng: &mut R,
+                                          better_than: F,
                                           n: usize,
                                           k: usize)
-                                          -> Option<(usize, F)>
-    where F: Fitness,
-          E: Fn(usize) -> F
+                                          -> usize
+    where F: Fn(usize, usize) -> bool
 {
+    assert!(n > 0);
+    assert!(k > 0);
     assert!(n >= k);
 
-    let mut best: Option<(usize, F)> = None;
+    let mut best: usize = rng.gen_range(0, n);
 
-    for _ in 0..k {
+    for _ in 1..k {
         let i = rng.gen_range(0, n);
-        let fitness = fitness(i);
-        let better = match best {
-            Some((_, ref current_best_fitness)) => {
-                fitness.fitter_than(current_best_fitness)
-            }
-            None => {
-                true
-            }
-        };
-        if better {
-            best = Some((i, fitness));
+        if better_than(i, best) {
+            best = i;
         }
     }
+
     return best;
 }
 

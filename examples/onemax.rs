@@ -18,7 +18,7 @@ use evo::{
     OpSelect,
     OpVariation,
     VariationMethod,
-    tournament_selection,
+    tournament_selection_fast,
     ea_mu_plus_lambda,
     Probability,
     ProbabilityValue,
@@ -102,8 +102,8 @@ impl<I: Individual, F: Fitness> OpSelect<I, F> for Toolbox {
     fn select(&mut self, population: &Population<I,F>, mu: usize) -> Population<I,F> {
         let mut pop = Population::with_capacity(mu);
         for _ in 0..mu {
-            let (best_idx, f) = tournament_selection(&mut self.rng, |idx| { population.get_fitness(idx) }, population.len(), self.tournament_size).unwrap();
-            pop.add_individual_with_fitness(population.get_individual(best_idx).clone(), f);
+            let choice = tournament_selection_fast(&mut self.rng, |i1, i2| { population.fitter_than(i1, i2) }, population.len(), self.tournament_size);
+            pop.add_individual_with_fitness(population.get_individual(choice).clone(), population.get_fitness(choice));
         }
         assert!(pop.len() == mu);
         return pop;
