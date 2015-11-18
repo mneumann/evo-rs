@@ -75,7 +75,6 @@ fn fast_non_dominated_sort<P: Dominate>(solutions: &[P], n: usize) -> Vec<Vec<us
     let mut dominated_solutions: Vec<Vec<usize>> = (0..solutions.len())
                                                        .map(|_| Vec::new())
                                                        .collect();
-    let mut rank: Vec<Option<usize>> = (0..solutions.len()).map(|_| None).collect();
     let mut found_solutions: usize = 0;
 
     for (i, p) in solutions.iter().enumerate() {
@@ -96,8 +95,6 @@ fn fast_non_dominated_sort<P: Dominate>(solutions: &[P], n: usize) -> Vec<Vec<us
             // `p` belongs to the first front as it is not dominated by any
             // other solution.
             current_front.push(i);
-            assert!(rank[i].is_none());
-            rank[i] = Some(fronts.len());
         }
     }
 
@@ -114,8 +111,6 @@ fn fast_non_dominated_sort<P: Dominate>(solutions: &[P], n: usize) -> Vec<Vec<us
                     domination_count[q_i] -= 1;
                     if domination_count[q_i] == 0 {
                         // q belongs to the next front
-                        assert!(rank[q_i].is_none());
-                        rank[q_i] = Some(fronts.len() + 1);
                         next_front.push(q_i);
                     }
                 }
@@ -123,10 +118,6 @@ fn fast_non_dominated_sort<P: Dominate>(solutions: &[P], n: usize) -> Vec<Vec<us
             fronts.push(current_front);
             current_front = next_front;
         }
-    }
-
-    for i in 0..solutions.len() {
-        assert!(rank[i].is_some());
     }
 
     return fronts;
