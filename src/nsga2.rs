@@ -16,11 +16,25 @@ trait Dominate<Rhs=Self> {
     fn dominates(&self, other: &Rhs) -> bool;
 }
 
+trait MultiObjective {
+    fn num_objectives() -> usize;
+    fn get_f32_objective(&self, i: usize) -> f32;
+}
+
 #[derive(Debug)]
 struct MultiObjective2<T>
     where T: Sized + PartialOrd
 {
     objectives: [T; 2],
+}
+
+impl MultiObjective for MultiObjective2<f32> {
+    fn num_objectives() -> usize {
+        2
+    }
+    fn get_f32_objective(&self, i: usize) -> f32 {
+        self.objectives[i]
+    }
 }
 
 #[derive(Debug)]
@@ -52,7 +66,8 @@ impl<T:Sized+PartialOrd> Dominate for MultiObjective2<T> {
     }
 }
 
-fn fast_non_dominated_sort<P: Dominate>(solutions: &[P]) -> Vec<Vec<usize>> {
+/// `n` stop after we have found this number of solutions (we include the whole pareto front).
+fn fast_non_dominated_sort<P: Dominate>(solutions: &[P], n: usize) -> Vec<Vec<usize>> {
     let mut fronts: Vec<Vec<usize>> = Vec::new();
     let mut current_front = Vec::new();
 
@@ -61,6 +76,7 @@ fn fast_non_dominated_sort<P: Dominate>(solutions: &[P]) -> Vec<Vec<usize>> {
                                                        .map(|_| Vec::new())
                                                        .collect();
     let mut rank: Vec<Option<usize>> = (0..solutions.len()).map(|_| None).collect();
+    let mut found_solutions: usize = 0;
 
     for (i, p) in solutions.iter().enumerate() {
         for (j, q) in solutions.iter().enumerate() {
@@ -86,20 +102,27 @@ fn fast_non_dominated_sort<P: Dominate>(solutions: &[P]) -> Vec<Vec<usize>> {
     }
 
     while !current_front.is_empty() {
-        let mut next_front = Vec::new();
-        for &p_i in current_front.iter() {
-            for &q_i in dominated_solutions[p_i].iter() {
-                domination_count[q_i] -= 1;
-                if domination_count[q_i] == 0 {
-                    // q belongs to the next front
-                    assert!(rank[q_i].is_none());
-                    rank[q_i] = Some(fronts.len() + 1);
-                    next_front.push(q_i);
+        found_solutions += current_front.len();
+        if found_solutions >= n {
+            fronts.push(current_front);
+            break;
+        } else {
+            // we haven't found enough solutions yet.
+            let mut next_front = Vec::new();
+            for &p_i in current_front.iter() {
+                for &q_i in dominated_solutions[p_i].iter() {
+                    domination_count[q_i] -= 1;
+                    if domination_count[q_i] == 0 {
+                        // q belongs to the next front
+                        assert!(rank[q_i].is_none());
+                        rank[q_i] = Some(fronts.len() + 1);
+                        next_front.push(q_i);
+                    }
                 }
             }
+            fronts.push(current_front);
+            current_front = next_front;
         }
-        fronts.push(current_front);
-        current_front = next_front;
     }
 
     for i in 0..solutions.len() {
@@ -107,6 +130,49 @@ fn fast_non_dominated_sort<P: Dominate>(solutions: &[P]) -> Vec<Vec<usize>> {
     }
 
     return fronts;
+}
+
+/// returns: (individual_idx, distance)
+fn crowding_distance_assignment<P: MultiObjective>(solutions: &[P],
+                                                   individuals_idx: &[usize])
+                                                   -> Vec<(usize, f32)> {
+    let l = individuals_idx.len();
+    let mut distance: Vec<f32> = (0..l).map(|_| 0.0).collect();
+
+    // maps index into distance array to index into solutions.
+    let mut map: Vec<(usize, usize)> = (0..l).map(|i| (i, individuals_idx[i])).collect();
+
+    for m in 0..P::num_objectives() {
+        // sort using objective `m`
+        map.sort_by(|a, b| {
+            solutions[a.1]
+                .get_f32_objective(m)
+                .partial_cmp(&solutions[b.1].get_f32_objective(m))
+                .unwrap()
+        });
+        distance[map[0].0] = std::f32::INFINITY;
+        distance[map[l - 1].0] = std::f32::INFINITY;
+        let min_f = solutions[map[0].1].get_f32_objective(m);
+        let max_f = solutions[map[l - 1].1].get_f32_objective(m);
+        if min_f != max_f {
+            let norm = P::num_objectives() as f32 * (max_f - min_f);
+            debug_assert!(norm != 0.0);
+            for i in 1..(l - 1) {
+                distance[map[i].0] += (solutions[map[i + 1].1].get_f32_objective(m) -
+                                       solutions[map[i - 1].1].get_f32_objective(m)) /
+                                      norm;
+            }
+        }
+    }
+
+    let mut res: Vec<(usize, f32)> = (0..l).map(|_| (0, -1.0)).collect();
+    for &(i, idx) in map.iter() {
+        debug_assert!(res[i].1 == -1.0);
+        debug_assert!(res[i].0 == 0);
+        res[i] = (idx, distance[i]);
+    }
+
+    return res;
 }
 
 #[test]
@@ -133,8 +199,15 @@ fn main() {
     solutions.push(MultiObjective2 { objectives: [1.0, 0.1] });
     solutions.push(MultiObjective2 { objectives: [0.1, 0.1] });
     solutions.push(MultiObjective2 { objectives: [0.1, 1.0] });
+    solutions.push(MultiObjective2 { objectives: [0.5, 0.5] });
 
-    let fronts = fast_non_dominated_sort(&solutions[..]);
+    let fronts = fast_non_dominated_sort(&solutions[..], 10);
     println!("solutions: {:?}", solutions);
     println!("fronts: {:?}", fronts);
+
+    for front in fronts.iter() {
+        let distances = crowding_distance_assignment(&solutions[..], &front[..]);
+        println!("front: {:?}", front);
+        println!("distances: {:?}", distances);
+    }
 }
