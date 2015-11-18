@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 /// optimal pareto front (f_1, 1 - sqrt(f_1))
 
 /// 0 <= x[i] <= 1.0
@@ -123,47 +125,98 @@ fn fast_non_dominated_sort<P: Dominate>(solutions: &[P], n: usize) -> Vec<Vec<us
     return fronts;
 }
 
-/// returns: (individual_idx, distance)
+#[derive(Debug)]
+struct SolutionRankDist {
+    idx: usize,
+    rank: u32,
+    dist: f32,
+}
+
 fn crowding_distance_assignment<P: MultiObjective>(solutions: &[P],
+                                                   common_rank: u32,
                                                    individuals_idx: &[usize])
-                                                   -> Vec<(usize, f32)> {
+                                                   -> Vec<SolutionRankDist> {
     let l = individuals_idx.len();
     let mut distance: Vec<f32> = (0..l).map(|_| 0.0).collect();
-
-    // maps index into distance array to index into solutions.
-    let mut map: Vec<(usize, usize)> = (0..l).map(|i| (i, individuals_idx[i])).collect();
+    let mut indices: Vec<usize> = (0..l).map(|i| i).collect();
 
     for m in 0..P::num_objectives() {
         // sort using objective `m`
-        map.sort_by(|a, b| {
-            solutions[a.1]
+        indices.sort_by(|&a, &b| {
+            solutions[individuals_idx[a]]
                 .get_f32_objective(m)
-                .partial_cmp(&solutions[b.1].get_f32_objective(m))
+                .partial_cmp(&solutions[individuals_idx[b]].get_f32_objective(m))
                 .unwrap()
         });
-        distance[map[0].0] = std::f32::INFINITY;
-        distance[map[l - 1].0] = std::f32::INFINITY;
-        let min_f = solutions[map[0].1].get_f32_objective(m);
-        let max_f = solutions[map[l - 1].1].get_f32_objective(m);
+        distance[indices[0]] = std::f32::INFINITY;
+        distance[indices[l - 1]] = std::f32::INFINITY;
+        let min_f = solutions[individuals_idx[indices[0]]].get_f32_objective(m);
+        let max_f = solutions[individuals_idx[indices[l - 1]]].get_f32_objective(m);
         if min_f != max_f {
             let norm = P::num_objectives() as f32 * (max_f - min_f);
             debug_assert!(norm != 0.0);
             for i in 1..(l - 1) {
-                distance[map[i].0] += (solutions[map[i + 1].1].get_f32_objective(m) -
-                                       solutions[map[i - 1].1].get_f32_objective(m)) /
-                                      norm;
+                distance[indices[i]] += (solutions[individuals_idx[indices[i + 1]]]
+                                             .get_f32_objective(m) -
+                                         solutions[individuals_idx[indices[i - 1]]]
+                                             .get_f32_objective(m)) /
+                                        norm;
             }
         }
     }
 
-    let mut res: Vec<(usize, f32)> = (0..l).map(|_| (0, -1.0)).collect();
-    for &(i, idx) in map.iter() {
-        debug_assert!(res[i].1 == -1.0);
-        debug_assert!(res[i].0 == 0);
-        res[i] = (idx, distance[i]);
+    return indices.iter()
+                  .map(|&i| {
+                      SolutionRankDist {
+                          idx: individuals_idx[i],
+                          rank: common_rank,
+                          dist: distance[i],
+                      }
+                  })
+                  .collect();
+}
+
+
+/// Select `n` out of the `solutions`.
+fn select<P: Dominate + MultiObjective>(solutions: &[P], n: usize) -> Vec<SolutionRankDist> {
+    assert!(solutions.len() > n);
+    let mut selection = Vec::with_capacity(n);
+
+    let pareto_fronts = fast_non_dominated_sort(solutions, n);
+
+    for (rank, front) in pareto_fronts.iter().enumerate() {
+        if selection.len() >= n {
+            break;
+        }
+        let missing: usize = n - selection.len();
+
+        let mut solution_rank_dist = crowding_distance_assignment(solutions,
+                                                                  rank as u32,
+                                                                  &front[..]);
+        if solution_rank_dist.len() <= missing {
+            // whole front fits into result.
+            selection.extend(solution_rank_dist);
+            assert!(selection.len() <= n);
+        } else {
+            // choose only best from this front, according to the crowding distance.
+            solution_rank_dist.sort_by(|a, b| {
+                debug_assert!(a.rank == b.rank);
+                // reverse ordering
+                if a.dist > b.dist {
+                    Ordering::Less
+                } else if a.dist < b.dist {
+                    Ordering::Greater
+                } else {
+                    Ordering::Equal
+                }
+            });
+            selection.extend(solution_rank_dist.into_iter().take(missing));
+            assert!(selection.len() == n);
+            break;
+        }
     }
 
-    return res;
+    return selection;
 }
 
 #[test]
@@ -191,13 +244,19 @@ fn main() {
     solutions.push(MultiObjective2 { objectives: [0.1, 0.1] });
     solutions.push(MultiObjective2 { objectives: [0.1, 1.0] });
     solutions.push(MultiObjective2 { objectives: [0.5, 0.5] });
+    solutions.push(MultiObjective2 { objectives: [0.5, 0.5] });
+
+    println!("solutions: {:?}", solutions);
+    let selection = select(&solutions[..], 4);
+    println!("selection: {:?}", selection);
+
 
     let fronts = fast_non_dominated_sort(&solutions[..], 10);
     println!("solutions: {:?}", solutions);
     println!("fronts: {:?}", fronts);
 
-    for front in fronts.iter() {
-        let distances = crowding_distance_assignment(&solutions[..], &front[..]);
+    for (rank, front) in fronts.iter().enumerate() {
+        let distances = crowding_distance_assignment(&solutions[..], rank as u32, &front[..]);
         println!("front: {:?}", front);
         println!("distances: {:?}", distances);
     }
