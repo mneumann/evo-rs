@@ -70,8 +70,6 @@ impl<T:PartialOrd+Send+Clone+Default> PartialOrd for MaxFitness<T> {
 #[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd)]
 pub struct MinFitness<T: PartialOrd + Clone + Send + Default>(pub T);
 
-
-
 /// Represents an individual in a Population.
 pub trait Individual: Clone+Send {
 }
@@ -84,7 +82,7 @@ pub struct UnratedPopulation<I: Individual> {
 
 /// Manages a population of rated individuals.
 #[derive(Clone, Debug)]
-pub struct RatedPopulation<I: Individual, F> {
+pub struct RatedPopulation<I: Individual, F:PartialOrd> {
     rated_population: Vec<(I,F)>,
 }
 
@@ -121,7 +119,7 @@ impl<I:Individual> UnratedPopulation<I> {
     /// Returns the rated population.
     pub fn rate<E, F>(self, evaluator: &E) -> RatedPopulation<I, F>
         where E: Evaluator<I, F>,
-              F: PartialOrd+Clone+Send
+              F: PartialOrd
     {
         let len = self.population.len();
         let rated_population : Vec<(I,F)> = self.population.into_iter().map(|ind| {
@@ -135,7 +133,7 @@ impl<I:Individual> UnratedPopulation<I> {
     /// Evaluate the population in parallel using the threadpool `pool`.
     pub fn rate_in_parallel<E, F>(self, evaluator: &E, pool: &mut Pool, chunk_size: usize) -> RatedPopulation<I, F>
         where E: Evaluator<I, F>,
-              F: PartialOrd+Clone+Send+Default,
+              F: PartialOrd+Send+Default,
     {
         let len = self.population.len();
         let mut rated_population : Vec<(I,F)> = self.population.into_iter().map(|ind| {
@@ -155,7 +153,7 @@ impl<I:Individual> UnratedPopulation<I> {
 
 }
 
-impl<I:Individual, F:PartialOrd+Clone+Send+Default> RatedPopulation<I, F>
+impl<I:Individual, F:PartialOrd> RatedPopulation<I, F>
 {
     pub fn new() -> RatedPopulation<I, F> {
         RatedPopulation { rated_population: Vec::new() }
@@ -215,7 +213,7 @@ impl<I:Individual, F:PartialOrd+Clone+Send+Default> RatedPopulation<I, F>
 }
 
 /// Evaluates the fitness of an Individual.
-pub trait Evaluator<I:Individual, F:PartialOrd+Clone+Send>: Sync {
+pub trait Evaluator<I:Individual, F:PartialOrd>: Sync {
     fn fitness(&self, individual: &I) -> F;
 }
 
@@ -294,7 +292,7 @@ pub fn variation_or<I, F, T>(toolbox: &mut T,
                              lambda: usize)
                              -> (UnratedPopulation<I>, RatedPopulation<I,F>)
     where I: Individual,
-          F: PartialOrd+Clone+Send+Default,
+          F: PartialOrd+Clone,
           T: OpCrossover1<I> + OpMutate<I> + OpVariation + OpSelectRandomIndividual<I, F>
 {
     // We assume that most offspring is unrated and only a small amount of already rated offspring.
