@@ -10,7 +10,8 @@ use std::cmp;
 use evo::{
     Fitness,
     Individual,
-    Population,
+    RatedPopulation,
+    UnratedPopulation,
     Evaluator,
     OpCrossover1,
     OpMutate,
@@ -93,24 +94,24 @@ impl OpVariation for Toolbox {
 
 // XXX: No need for Fitness
 impl<I: Individual, F: Fitness> OpSelectRandomIndividual<I, F> for Toolbox {
-    fn select_random_individual(&mut self, population: &Population<I,F>) -> usize {
+    fn select_random_individual(&mut self, population: &RatedPopulation<I,F>) -> usize {
         self.rng.gen_range(0, population.len())
     }
 }
 
 impl<I: Individual, F: Fitness> OpSelect<I, F> for Toolbox {
-    fn select(&mut self, population: &Population<I,F>, mu: usize) -> Population<I,F> {
-        let mut pop = Population::with_capacity(mu);
+    fn select(&mut self, population: &RatedPopulation<I,F>, mu: usize) -> RatedPopulation<I,F> {
+        let mut pop: RatedPopulation<I,F> = RatedPopulation::with_capacity(mu);
         for _ in 0..mu {
             let choice = tournament_selection_fast(&mut self.rng, |i1, i2| { population.fitter_than(i1, i2) }, population.len(), self.tournament_size);
-            pop.add_individual_with_fitness(population.get_individual(choice).clone(), population.get_fitness(choice));
+            pop.add(population.get_individual(choice).clone(), population.get_fitness(choice).clone());
         }
         assert!(pop.len() == mu);
         return pop;
     }
 }
 
-fn print_stat(p: &Population<MyGenome, MaxFitness<usize>>) {
+fn print_stat(p: &RatedPopulation<MyGenome, MaxFitness<usize>>) {
     let mut fitnesses = Vec::new();
     for i in 0..p.len() {
         let f = p.get_fitness(i).0;
@@ -131,13 +132,13 @@ fn main() {
 
    let mut rng = rand::isaac::Isaac64Rng::new_unseeded();
 
-   let mut initial_population: Population<MyGenome, MaxFitness<usize>> = Population::with_capacity(MU);
+   let mut initial_population: UnratedPopulation<MyGenome> = UnratedPopulation::with_capacity(MU);
    for _ in 0..MU {
         let iter = rng.gen_iter::<bool>().take(BITS);
-        initial_population.add_individual(MyGenome{bits:BitString::from_iter(iter)});
+        initial_population.add(MyGenome{bits:BitString::from_iter(iter)});
    }
    let evaluator = MyEval;
-   initial_population.evaluate(&evaluator);
+   let rated_population: RatedPopulation<MyGenome, MaxFitness<usize>> = initial_population.rate(&evaluator);
 
    let mut toolbox = Toolbox {
         rng: Box::new(rng),
@@ -147,10 +148,10 @@ fn main() {
         tournament_size: 3,
    };
 
-   fn stat(gen:usize, nevals:usize, pop: &Population<MyGenome, MaxFitness<usize>>) {
+   fn stat(gen:usize, nevals:usize, pop: &RatedPopulation<MyGenome, MaxFitness<usize>>) {
        print!("{:04} {:04}", gen, nevals);
-       print_stat(&pop);
+       print_stat(pop);
    }
 
-   let _optimum = evo::ea_mu_plus_lambda(&mut toolbox, &evaluator, initial_population, MU, LAMBDA, NGEN, stat, 8, 10);
+   let _optimum = evo::ea_mu_plus_lambda(&mut toolbox, &evaluator, rated_population, MU, LAMBDA, NGEN, stat, 8, 10);
 }
