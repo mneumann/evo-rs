@@ -1,4 +1,5 @@
-use std::cmp::Ordering;
+use std::cmp::{self, Ordering};
+use std::f32;
 
 /// optimal pareto front (f_1, 1 - sqrt(f_1))
 
@@ -148,8 +149,8 @@ fn crowding_distance_assignment<P: MultiObjective>(solutions: &[P],
                 .partial_cmp(&solutions[individuals_idx[b]].get_f32_objective(m))
                 .unwrap()
         });
-        distance[indices[0]] = std::f32::INFINITY;
-        distance[indices[l - 1]] = std::f32::INFINITY;
+        distance[indices[0]] = f32::INFINITY;
+        distance[indices[l - 1]] = f32::INFINITY;
         let min_f = solutions[individuals_idx[indices[0]]].get_f32_objective(m);
         let max_f = solutions[individuals_idx[indices[l - 1]]].get_f32_objective(m);
         if min_f != max_f {
@@ -177,10 +178,9 @@ fn crowding_distance_assignment<P: MultiObjective>(solutions: &[P],
 }
 
 
-/// Select `n` out of the `solutions`.
+/// Select `n` out of the `solutions`, assigning rank and distance.
 fn select<P: Dominate + MultiObjective>(solutions: &[P], n: usize) -> Vec<SolutionRankDist> {
-    assert!(solutions.len() > n);
-    let mut selection = Vec::with_capacity(n);
+    let mut selection = Vec::with_capacity(cmp::min(solutions.len(), n));
 
     let pareto_fronts = fast_non_dominated_sort(solutions, n);
 
@@ -247,9 +247,8 @@ fn main() {
     solutions.push(MultiObjective2 { objectives: [0.5, 0.5] });
 
     println!("solutions: {:?}", solutions);
-    let selection = select(&solutions[..], 4);
+    let selection = select(&solutions[..], 5);
     println!("selection: {:?}", selection);
-
 
     let fronts = fast_non_dominated_sort(&solutions[..], 10);
     println!("solutions: {:?}", solutions);
