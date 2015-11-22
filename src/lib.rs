@@ -7,7 +7,7 @@ extern crate bit_vec;
 extern crate rand;
 extern crate simple_parallel;
 use rand::{Rand, Rng};
-use std::cmp::PartialOrd;
+use std::cmp::{PartialOrd, Ordering};
 use simple_parallel::Pool;
 
 pub mod bit_string;
@@ -55,30 +55,22 @@ impl ProbabilityValue {
     }
 }
 
-/// Represents a fitness value.
-pub trait Fitness: Clone+Send {
-    fn fitter_than(&self, other: &Self) -> bool;
-}
-
 /// Maximizes the fitness value as objective.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct MaxFitness<T: PartialOrd + Clone + Send + Default>(pub T);
-impl<T:PartialOrd+Clone+Send+Default> Fitness for MaxFitness<T> {
-    #[inline(always)]
-    fn fitter_than(&self, other: &MaxFitness<T>) -> bool {
-        self.0 > other.0
+
+impl<T:PartialOrd+Send+Clone+Default> PartialOrd for MaxFitness<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &MaxFitness<T>) -> Option<Ordering> {
+        self.0.partial_cmp(&other.0).map(|i| i.reverse())
     }
 }
 
 /// Minimizes the fitness value as objective.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd)]
 pub struct MinFitness<T: PartialOrd + Clone + Send + Default>(pub T);
-impl<T:PartialOrd+Clone+Send+Default> Fitness for MinFitness<T> {
-    #[inline(always)]
-    fn fitter_than(&self, other: &MinFitness<T>) -> bool {
-        self.0 < other.0
-    }
-}
+
+
 
 /// Represents an individual in a Population.
 pub trait Individual: Clone+Send {
@@ -92,12 +84,12 @@ pub struct UnratedPopulation<I: Individual> {
 
 /// Manages a population of rated individuals.
 #[derive(Clone, Debug)]
-pub struct RatedPopulation<I: Individual, F:Fitness> {
+pub struct RatedPopulation<I: Individual, F> {
     rated_population: Vec<(I,F)>,
 }
 
-impl<I:Individual> UnratedPopulation<I>
-{
+impl<I:Individual> UnratedPopulation<I> {
+
     pub fn new() -> UnratedPopulation<I> {
         UnratedPopulation { population: Vec::new() }
     }
@@ -129,7 +121,7 @@ impl<I:Individual> UnratedPopulation<I>
     /// Returns the rated population.
     pub fn rate<E, F>(self, evaluator: &E) -> RatedPopulation<I, F>
         where E: Evaluator<I, F>,
-              F: Fitness
+              F: PartialOrd+Clone+Send
     {
         let len = self.population.len();
         let rated_population : Vec<(I,F)> = self.population.into_iter().map(|ind| {
@@ -143,7 +135,7 @@ impl<I:Individual> UnratedPopulation<I>
     /// Evaluate the population in parallel using the threadpool `pool`.
     pub fn rate_in_parallel<E, F>(self, evaluator: &E, pool: &mut Pool, chunk_size: usize) -> RatedPopulation<I, F>
         where E: Evaluator<I, F>,
-              F: Fitness+Default,
+              F: PartialOrd+Clone+Send+Default,
     {
         let len = self.population.len();
         let mut rated_population : Vec<(I,F)> = self.population.into_iter().map(|ind| {
@@ -163,7 +155,7 @@ impl<I:Individual> UnratedPopulation<I>
 
 }
 
-impl<I:Individual, F:Fitness> RatedPopulation<I, F>
+impl<I:Individual, F:PartialOrd+Clone+Send+Default> RatedPopulation<I, F>
 {
     pub fn new() -> RatedPopulation<I, F> {
         RatedPopulation { rated_population: Vec::new() }
@@ -203,7 +195,7 @@ impl<I:Individual, F:Fitness> RatedPopulation<I, F>
 
     #[inline]
     pub fn fitter_than(&self, i1: usize, i2: usize) -> bool {
-        self.get_fitness(i1).fitter_than(self.get_fitness(i2))
+        self.get_fitness(i1) < self.get_fitness(i2)
     }
 
     /// Return index of individual with best fitness.
@@ -212,7 +204,7 @@ impl<I:Individual, F:Fitness> RatedPopulation<I, F>
         let mut fittest = 0;
 
         for i in 1 .. self.rated_population.len() {
-            if self.rated_population[i].1.fitter_than(&self.rated_population[fittest].1) {
+            if self.rated_population[i].1 < self.rated_population[fittest].1 {
                 fittest = i;
             }
         }
@@ -223,7 +215,7 @@ impl<I:Individual, F:Fitness> RatedPopulation<I, F>
 }
 
 /// Evaluates the fitness of an Individual.
-pub trait Evaluator<I:Individual, F:Fitness>: Sync {
+pub trait Evaluator<I:Individual, F:PartialOrd+Clone+Send>: Sync {
     fn fitness(&self, individual: &I) -> F;
 }
 
@@ -286,14 +278,14 @@ pub trait OpVariation {
 }
 
 /// Selects a random individual from the population.
-pub trait OpSelectRandomIndividual<I: Individual,F: Fitness> {
+pub trait OpSelectRandomIndividual<I: Individual, F: PartialOrd> {
     fn select_random_individual<'a>(&mut self,
                                     population: &'a RatedPopulation<I, F>)
                                     -> usize; // IndividualIndex
 }
 
 /// Produce new generation through selection of \mu individuals from population.
-pub trait OpSelect<I: Individual, F: Fitness> {
+pub trait OpSelect<I: Individual, F: PartialOrd> {
     fn select(&mut self, population: &RatedPopulation<I, F>, mu: usize) -> RatedPopulation<I, F>;
 }
 
@@ -302,7 +294,7 @@ pub fn variation_or<I, F, T>(toolbox: &mut T,
                              lambda: usize)
                              -> (UnratedPopulation<I>, RatedPopulation<I,F>)
     where I: Individual,
-          F: Fitness,
+          F: PartialOrd+Clone+Send+Default,
           T: OpCrossover1<I> + OpMutate<I> + OpVariation + OpSelectRandomIndividual<I, F>
 {
     // We assume that most offspring is unrated and only a small amount of already rated offspring.
@@ -345,7 +337,7 @@ pub fn variation_or<I, F, T>(toolbox: &mut T,
 pub fn ea_mu_plus_lambda<I,F,T,E,S>(toolbox: &mut T, evaluator: &E, mut population: RatedPopulation<I,F>, mu: usize, lambda: usize, num_generations: usize, stat: S, numthreads: usize, chunksize: usize)
     -> RatedPopulation<I,F>
 where I: Individual,
-      F: Fitness+Default,
+      F: PartialOrd+Clone+Send+Default,
       T: OpCrossover1<I> + OpMutate<I> + OpVariation + OpSelectRandomIndividual<I,F> + OpSelect<I,F>,
       E: Evaluator<I,F>+Sync,
       S: Fn(usize, usize, &RatedPopulation<I,F>)

@@ -8,7 +8,6 @@ use rand::{Rng};
 use std::cmp;
 
 use evo::{
-    Fitness,
     Individual,
     RatedPopulation,
     UnratedPopulation,
@@ -93,13 +92,13 @@ impl OpVariation for Toolbox {
 }
 
 // XXX: No need for Fitness
-impl<I: Individual, F: Fitness> OpSelectRandomIndividual<I, F> for Toolbox {
+impl<I: Individual, F:PartialOrd+Clone+Send+Default> OpSelectRandomIndividual<I, F> for Toolbox {
     fn select_random_individual(&mut self, population: &RatedPopulation<I,F>) -> usize {
         self.rng.gen_range(0, population.len())
     }
 }
 
-impl<I: Individual, F: Fitness> OpSelect<I, F> for Toolbox {
+impl<I: Individual, F: PartialOrd+Clone+Send+Default> OpSelect<I, F> for Toolbox {
     fn select(&mut self, population: &RatedPopulation<I,F>, mu: usize) -> RatedPopulation<I,F> {
         let mut pop: RatedPopulation<I,F> = RatedPopulation::with_capacity(mu);
         for _ in 0..mu {
