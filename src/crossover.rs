@@ -15,6 +15,15 @@ fn sbx_beta(u: f32, eta: f32) -> f32 {
     .powf(1.0 / (eta + 1.0))
 }
 
+#[inline]
+fn sbx_single_var<R: Rng>(rng: &mut R, p: (f32, f32), eta: f32) -> (f32, f32) {
+    let u = rng.gen::<f32>();
+    let beta = sbx_beta(u, eta);
+
+    (0.5 * (((1.0 + beta) * p.0) + ((1.0 - beta) * p.1)),
+     0.5 * (((1.0 - beta) * p.0) + ((1.0 + beta) * p.1)))
+}
+
 /// Modifies ind1 and ind2 in-place.
 /// Reference: http://www.iitk.ac.in/kangal/papers/k2011017.pdf
 pub fn simulated_binary_crossover<R: Rng>(rng: &mut R,
@@ -25,14 +34,7 @@ pub fn simulated_binary_crossover<R: Rng>(rng: &mut R,
 
     let mut iter = ind1.iter_mut().zip(ind2.iter_mut());
     for (x1, x2) in iter {
-        let (p1, p2) = (*x1, *x2);
-
-        let u = rng.gen::<f32>();
-        let beta = sbx_beta(u, eta);
-
-        let c1 = 0.5 * (((1.0 + beta) * p1) + ((1.0 - beta) * p2));
-        let c2 = 0.5 * (((1.0 - beta) * p1) + ((1.0 + beta) * p2));
-
+        let (c1, c2) = sbx_single_var(rng, (*x1, *x2), eta);
         *x1 = c1;
         *x2 = c2;
     }
