@@ -12,6 +12,7 @@ use simple_parallel::Pool;
 
 pub mod bit_string;
 pub mod nsga2;
+pub mod crossover;
 
 /// A probability is a value in the range [0.0, 1.0].
 /// A probability of 1.0 means `always`, that of 0.0
