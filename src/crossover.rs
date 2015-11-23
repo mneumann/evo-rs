@@ -3,7 +3,20 @@ use rand::Rand;
 
 use rand::Rng;
 
+#[inline]
+fn sbx_beta(u: f32, eta: f32) -> f32 {
+    debug_assert!(u >= 0.0 && u < 1.0);
+
+    if u <= 0.5 {
+        2.0 * u
+    } else {
+        1.0 / (2.0 * (1.0 - u))
+    }
+    .powf(1.0 / (eta + 1.0))
+}
+
 /// Modifies ind1 and ind2 in-place.
+/// Reference: http://www.iitk.ac.in/kangal/papers/k2011017.pdf
 pub fn simulated_binary_crossover<R: Rng>(rng: &mut R,
                                           ind1: &mut [f32],
                                           ind2: &mut [f32],
@@ -12,20 +25,16 @@ pub fn simulated_binary_crossover<R: Rng>(rng: &mut R,
 
     let mut iter = ind1.iter_mut().zip(ind2.iter_mut());
     for (x1, x2) in iter {
-        let (old_x1, old_x2) = (*x1, *x2);
+        let (p1, p2) = (*x1, *x2);
 
         let u = rng.gen::<f32>();
-        debug_assert!(u >= 0.0 && u < 1.0);
+        let beta = sbx_beta(u, eta);
 
-        let beta = if u <= 0.5 {
-                       2.0 * u
-                   } else {
-                       1.0 / (2.0 * (1.0 - u))
-                   }
-                   .powf(1.0 / (eta + 1.0));
+        let c1 = 0.5 * (((1.0 + beta) * p1) + ((1.0 - beta) * p2));
+        let c2 = 0.5 * (((1.0 - beta) * p1) + ((1.0 + beta) * p2));
 
-        *x1 = 0.5 * (((1.0 + beta) * old_x1) + ((1.0 - beta) * old_x2));
-        *x2 = 0.5 * (((1.0 - beta) * old_x1) + ((1.0 + beta) * old_x2));
+        *x1 = c1;
+        *x2 = c2;
     }
 }
 
