@@ -5,7 +5,7 @@ use rand::Rng;
 
 #[inline]
 fn sbx_beta(u: f32, eta: f32) -> f32 {
-    debug_assert!(u >= 0.0 && u < 1.0);
+    assert!(u >= 0.0 && u < 1.0);
 
     if u <= 0.5 {
         2.0 * u
@@ -17,7 +17,7 @@ fn sbx_beta(u: f32, eta: f32) -> f32 {
 
 #[inline]
 fn sbx_beta_bounded(u: f32, eta: f32, gamma: f32) -> f32 {
-    debug_assert!(u >= 0.0 && u < 1.0);
+    assert!(u >= 0.0 && u < 1.0);
 
     let g = 1.0 - gamma;
     let ug = u * g;
@@ -50,6 +50,8 @@ fn _sbx_single_var_bounded<R: Rng>(rng: &mut R,
 
     assert!(a <= b);
     assert!(p_diff > 0.0);
+    assert!(p.0 >= a && p.0 <= b);
+    assert!(p.1 >= a && p.1 <= b);
 
     let beta_a = 1.0 + (p.0 - a) / p_diff;
     let beta_b = 1.0 + (b - p.1) / p_diff;
@@ -65,8 +67,13 @@ fn _sbx_single_var_bounded<R: Rng>(rng: &mut R,
     let beta_ua = sbx_beta_bounded(u, eta, gamma_a);
     let beta_ub = sbx_beta_bounded(u, eta, gamma_b);
 
-    (0.5 * (((1.0 + beta_ua) * p.0) + ((1.0 - beta_ua) * p.1)),
-     0.5 * (((1.0 - beta_ub) * p.0) + ((1.0 + beta_ub) * p.1)))
+    let c = (0.5 * (((1.0 + beta_ua) * p.0) + ((1.0 - beta_ua) * p.1)),
+             0.5 * (((1.0 - beta_ub) * p.0) + ((1.0 + beta_ub) * p.1)));
+
+    assert!(c.0 >= a && c.0 <= b);
+    assert!(c.1 >= a && c.1 <= b);
+
+    return c;
 }
 
 #[inline]
