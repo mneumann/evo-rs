@@ -1,34 +1,27 @@
 use std::cmp::{self, Ordering};
 use std::f32;
+use std::convert::From;
 
-/// optimal pareto front (f_1, 1 - sqrt(f_1))
-
-/// 0 <= x[i] <= 1.0
-fn zdt1(x: &[f32]) -> (f32, f32) {
-    let n = x.len();
-    assert!(n >= 2);
-
-    let f1 = x[0];
-    let g = 1.0 + (9.0 / (n - 1) as f32) * x[1..].iter().fold(0.0, |b, &i| b + i);
-    let f2 = g * (1.0 - (f1 / g).sqrt());
-
-    (f1, f2)
-}
-
-trait Dominate<Rhs=Self> {
+pub trait Dominate<Rhs=Self> {
     fn dominates(&self, other: &Rhs) -> bool;
 }
 
-trait MultiObjective {
+pub trait MultiObjective {
     fn num_objectives() -> usize;
     fn get_f32_objective(&self, i: usize) -> f32;
 }
 
 #[derive(Debug)]
-struct MultiObjective2<T>
+pub struct MultiObjective2<T>
     where T: Sized + PartialOrd
 {
     objectives: [T; 2],
+}
+
+impl<T:Sized+PartialOrd> From<(T, T)> for MultiObjective2<T> {
+    fn from(t: (T, T)) -> MultiObjective2<T> {
+        MultiObjective2 {objectives: [t.0, t.1]}
+    }
 }
 
 impl MultiObjective for MultiObjective2<f32> {
@@ -41,7 +34,7 @@ impl MultiObjective for MultiObjective2<f32> {
 }
 
 #[derive(Debug)]
-struct MultiObjective3<T>
+pub struct MultiObjective3<T>
     where T: Sized + PartialOrd
 {
     objectives: [T; 3],
@@ -69,7 +62,7 @@ impl<T:Sized+PartialOrd> Dominate for MultiObjective2<T> {
     }
 }
 
-/// `n` stop after we have found this number of solutions (we include the whole pareto front).
+/// Stop after we have found `n` solutions (we include the whole pareto front, so it are probably more solutions).
 fn fast_non_dominated_sort<P: Dominate>(solutions: &[P], n: usize) -> Vec<Vec<usize>> {
     let mut fronts: Vec<Vec<usize>> = Vec::new();
     let mut current_front = Vec::new();
@@ -127,10 +120,33 @@ fn fast_non_dominated_sort<P: Dominate>(solutions: &[P], n: usize) -> Vec<Vec<us
 }
 
 #[derive(Debug)]
-struct SolutionRankDist {
-    idx: usize,
-    rank: u32,
-    dist: f32,
+pub struct SolutionRankDist {
+    pub idx: usize,
+    pub rank: u32,
+    pub dist: f32,
+}
+
+impl PartialEq for SolutionRankDist {
+    #[inline]
+    fn eq(&self, other: &SolutionRankDist) -> bool {
+        self.rank == other.rank && self.dist == other.dist
+    }
+}
+
+// Implement the crowding-distance comparison operator.
+impl PartialOrd for SolutionRankDist {
+    #[inline]
+    // compare on rank first (ASC), then on dist (DESC)
+    fn partial_cmp(&self, other: &SolutionRankDist) -> Option<Ordering> {
+        match self.rank.partial_cmp(&other.rank) {
+            Some(Ordering::Equal) => {
+                // first criterion equal, second criterion decides
+                // reverse ordering
+                self.dist.partial_cmp(&other.dist).map(|i| i.reverse())
+            }
+            other => { other }
+        }
+    }
 }
 
 fn crowding_distance_assignment<P: MultiObjective>(solutions: &[P],
@@ -179,7 +195,7 @@ fn crowding_distance_assignment<P: MultiObjective>(solutions: &[P],
 
 
 /// Select `n` out of the `solutions`, assigning rank and distance.
-fn select<P: Dominate + MultiObjective>(solutions: &[P], n: usize) -> Vec<SolutionRankDist> {
+pub fn select<P: Dominate + MultiObjective>(solutions: &[P], n: usize) -> Vec<SolutionRankDist> {
     let mut selection = Vec::with_capacity(cmp::min(solutions.len(), n));
 
     let pareto_fronts = fast_non_dominated_sort(solutions, n);
@@ -201,14 +217,7 @@ fn select<P: Dominate + MultiObjective>(solutions: &[P], n: usize) -> Vec<Soluti
             // choose only best from this front, according to the crowding distance.
             solution_rank_dist.sort_by(|a, b| {
                 debug_assert!(a.rank == b.rank);
-                // reverse ordering
-                if a.dist > b.dist {
-                    Ordering::Less
-                } else if a.dist < b.dist {
-                    Ordering::Greater
-                } else {
-                    Ordering::Equal
-                }
+                a.partial_cmp(b).unwrap()
             });
             selection.extend(solution_rank_dist.into_iter().take(missing));
             assert!(selection.len() == n);
