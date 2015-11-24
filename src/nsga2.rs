@@ -1,6 +1,7 @@
 use std::cmp::{self, Ordering};
 use std::f32;
 use std::convert::From;
+use rand::Rng;
 
 pub trait Mate<T> {
     fn mate(&mut self, p1: &T, p2: &T) -> T;
@@ -28,7 +29,7 @@ pub struct MultiObjective2<T>
 
 impl<T:Sized+PartialOrd+Copy+Clone> From<(T, T)> for MultiObjective2<T> {
     fn from(t: (T, T)) -> MultiObjective2<T> {
-        MultiObjective2 {objectives: [t.0, t.1]}
+        MultiObjective2 { objectives: [t.0, t.1] }
     }
 }
 
@@ -155,7 +156,9 @@ impl PartialOrd for SolutionRankDist {
                 // reverse ordering
                 self.dist.partial_cmp(&other.dist).map(|i| i.reverse())
             }
-            other => { other }
+            other => {
+                other
+            }
         }
     }
 }
@@ -186,7 +189,9 @@ fn crowding_distance_assignment<P: MultiObjective>(solutions: &[P],
             for i in 1..(l - 1) {
                 let next_idx = individuals_idx[indices[i + 1]];
                 let prev_idx = individuals_idx[indices[i - 1]];
-                distance[indices[i]] += solutions[next_idx].dist_objective(&solutions[prev_idx], m) / norm;
+                distance[indices[i]] += solutions[next_idx]
+                                            .dist_objective(&solutions[prev_idx], m) /
+                                        norm;
             }
         }
     }
@@ -235,6 +240,80 @@ pub fn select<P: Dominate + MultiObjective>(solutions: &[P], n: usize) -> Vec<So
     }
 
     return selection;
+}
+
+pub fn iterate<R: Rng,
+               I: Clone,
+               M: Mate<I>,
+               F: Dominate + MultiObjective + Clone,
+               E: FnMut(&[I]) -> Vec<F>>
+    (rng: &mut R,
+     population: Vec<I>,
+     fitness: Vec<F>,
+     mut fitness_eval: E,
+     pop_size: usize,
+     offspring_size: usize,
+     mating: &mut M)
+     -> (Vec<I>, Vec<F>) {
+    assert!(population.len() == fitness.len());
+
+    // evaluate rank and crowding distance (using select()).
+    let rank_dist = select(&fitness[..], pop_size);
+    assert!(rank_dist.len() == pop_size);
+
+    // create `offspring_size` new offspring using binary tournament (randomly
+    // select two mating partners)
+    let offspring: Vec<_> = (0..offspring_size)
+                                .map(|_| {
+                                    // first parent. two candidates
+                                    let p1cand = (rng.gen_range(0, rank_dist.len()),
+                                                  rng.gen_range(0, rank_dist.len()));
+
+                                    // second parent. two candidates
+                                    let p2cand = (rng.gen_range(0, rank_dist.len()),
+                                                  rng.gen_range(0, rank_dist.len()));
+
+                                    // choose the better candiate (first parent)
+                                    let p1 = if rank_dist[p1cand.0] < rank_dist[p1cand.1] {
+                                        p1cand.0
+                                    } else {
+                                        p1cand.1
+                                    };
+
+                                    // choose the better candiate (second parent)
+                                    let p2 = if rank_dist[p2cand.0] < rank_dist[p2cand.1] {
+                                        p2cand.0
+                                    } else {
+                                        p2cand.1
+                                    };
+
+                                    // cross-over the two parents and produce one child (throw away
+                                    // second child)
+                                    mating.mate(&population[p1], &population[p2])
+                                })
+                                .collect();
+
+    assert!(offspring.len() == offspring_size);
+
+    // evaluate fitness of offspring
+    let fitness_offspring = fitness_eval(&offspring[..]);
+    assert!(fitness_offspring.len() == offspring.len());
+
+    // merge population and offspring, then select
+    let mut new_pop = Vec::with_capacity(rank_dist.len() + offspring.len());
+    let mut new_fit = Vec::with_capacity(rank_dist.len() + offspring.len());
+    for rd in rank_dist {
+        new_pop.push(population[rd.idx].clone());
+        new_fit.push(fitness[rd.idx].clone());
+    }
+
+    new_pop.extend(offspring);
+    new_fit.extend(fitness_offspring);
+
+    assert!(new_pop.len() == pop_size + offspring_size);
+    assert!(new_fit.len() == pop_size + offspring_size);
+
+    return (new_pop, new_fit);
 }
 
 #[test]
