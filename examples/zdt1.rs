@@ -65,11 +65,92 @@ impl MyGenome {
     }
 }
 
+fn iterate<R: Rng>(rng: &mut R,
+                   population: Vec<MyGenome>,
+                   fitness: Vec<MultiObjective2<f32>>,
+                   pop_size: usize,
+                   offspring_size: usize,
+                   eta: f32)
+                   -> (Vec<MyGenome>, Vec<MultiObjective2<f32>>) {
+    assert!(population.len() == fitness.len());
+
+    // evaluate rank and crowding distance (using select()).
+    let rank_dist = nsga2::select(&fitness[..], pop_size);
+    assert!(rank_dist.len() == pop_size);
+
+    //
+    // for rd in rank_dist.iter() {
+    // println!("-------------------------------------------");
+    // println!("rd: {:?}", rd);
+    // println!("fitness: {:?}", fitness[rd.idx]);
+    // println!("genome: {:?}", population[rd.idx]);
+    // }
+    //
+
+    // create `offspring_size` new offspring using binary tournament (randomly
+    // select two mating
+    // partners)
+    let offspring: Vec<_> = (0..offspring_size)
+                                .map(|_| {
+                                    // first parent. two candidates
+                                    let p1cand = (rng.gen_range(0, rank_dist.len()),
+                                                  rng.gen_range(0, rank_dist.len()));
+
+                                    // second parent. two candidates
+                                    let p2cand = (rng.gen_range(0, rank_dist.len()),
+                                                  rng.gen_range(0, rank_dist.len()));
+
+                                    // choose the better candiate (first parent)
+                                    let p1 = if rank_dist[p1cand.0] < rank_dist[p1cand.1] {
+                                        p1cand.0
+                                    } else {
+                                        p1cand.1
+                                    };
+
+                                    // choose the better candiate (second parent)
+                                    let p2 = if rank_dist[p2cand.0] < rank_dist[p2cand.1] {
+                                        p2cand.0
+                                    } else {
+                                        p2cand.1
+                                    };
+
+                                    // cross-over the two parents and produce one child (throw away
+                                    // second child)
+                                    MyGenome::crossover1(rng,
+                                                         (&population[p1], &population[p2]),
+                                                         eta)
+                                })
+                                .collect();
+
+    assert!(offspring.len() == offspring_size);
+
+    // evaluate fitness of offspring
+    let fitness_offspring: Vec<_> = offspring.iter().map(|ind| ind.fitness()).collect();
+    assert!(fitness_offspring.len() == offspring.len());
+
+    // merge population and offspring, then select
+    let mut new_pop = Vec::with_capacity(rank_dist.len() + offspring.len());
+    let mut new_fit = Vec::with_capacity(rank_dist.len() + offspring.len());
+    for rd in rank_dist {
+        new_pop.push(population[rd.idx].clone());
+        new_fit.push(fitness[rd.idx].clone());
+    }
+
+    new_pop.extend(offspring);
+    new_fit.extend(fitness_offspring);
+
+    assert!(new_pop.len() == pop_size + offspring_size);
+    assert!(new_fit.len() == pop_size + offspring_size);
+
+    return (new_pop, new_fit);
+}
+
 fn main() {
-    const MU: usize = 600;
-    const N: usize = 2;
-    const ETA: f32 = 2.0;
-    // const NGEN: usize = 100;
+    const N: usize = 2; // ZDT1 order
+    const MU: usize = 600; // size of population
+    const LAMBDA: usize = 300; // size of offspring population
+    const ETA: f32 = 2.0; // cross-over variance
+    const NGEN: usize = 10; // number of generations
 
     let mut rng = rand::isaac::Isaac64Rng::new_unseeded();
 
@@ -82,76 +163,30 @@ fn main() {
     let fitness: Vec<_> = initial_population.iter().map(|ind| ind.fitness()).collect();
     assert!(fitness.len() == initial_population.len());
 
-    // evaluate rank and crowding distance (using select()).
-    let rank_dist = nsga2::select(&fitness[..], MU);
-    assert!(fitness.len() == rank_dist.len());
+    let mut pop = initial_population;
+    let mut fit = fitness;
 
-    for rd in rank_dist.iter() {
-        println!("-------------------------------------------");
-        println!("rd: {:?}", rd);
-        println!("fitness: {:?}", fitness[rd.idx]);
-        println!("genome: {:?}", initial_population[rd.idx]);
+    for i in 0..NGEN {
+        println!("===========================================================");
+        println!("Iteration: {}", i);
+        println!("===========================================================");
+
+        let (new_pop, new_fit) = iterate(&mut rng, pop, fit, MU, LAMBDA, ETA);
+        pop = new_pop;
+        fit = new_fit;
     }
+    println!("===========================================================");
+    println!("END");
+    println!("===========================================================");
 
-    // create MU new offspring using binary tournament (randomly select two mating
-    // partners)
-    let mut offspring: Vec<MyGenome> = Vec::with_capacity(MU);
-    for _ in 0..MU {
-        // first parent. two candidates
-        let p1cand = (rng.gen_range(0, initial_population.len()),
-                      rng.gen_range(0, initial_population.len()));
-
-        // second parent. two candidates
-        let p2cand = (rng.gen_range(0, initial_population.len()),
-                      rng.gen_range(0, initial_population.len()));
-
-        // choose the better candiate (first parent)
-        let p1 = if rank_dist[p1cand.0] < rank_dist[p1cand.1] {
-            p1cand.0
-        } else {
-            p1cand.1
-        };
-
-        // choose the better candiate (second parent)
-        let p2 = if rank_dist[p2cand.0] < rank_dist[p2cand.1] {
-            p2cand.0
-        } else {
-            p2cand.1
-        };
-
-
-        // cross-over the two parents and produce one child (throw away second child)
-        let child = MyGenome::crossover1(&mut rng,
-                                         (&initial_population[p1], &initial_population[p2]),
-                                         ETA);
-        offspring.push(child);
-    }
-
-    assert!(offspring.len() == MU);
-
-    // evaluate fitness of offspring
-    let fitness_offspring: Vec<_> = offspring.iter().map(|ind| ind.fitness()).collect();
-    assert!(fitness_offspring.len() == offspring.len());
-
-    // merge population and offspring, then select
-    let mut new_pop = initial_population;
-    new_pop.extend(offspring);
-    let mut new_fitness = fitness;
-    new_fitness.extend(fitness_offspring);
-
-    assert!(new_pop.len() == 2 * MU);
-    assert!(new_fitness.len() == 2 * MU);
-
-    // evaluate rank and crowding distance (using select()).
-    let rank_dist = nsga2::select(&new_fitness[..], MU);
+    // finally evaluate rank and crowding distance (using select()).
+    let rank_dist = nsga2::select(&fit[..], MU);
     assert!(rank_dist.len() == MU);
 
-    println!("===========================================================");
-    println!("===========================================================");
     for rd in rank_dist.iter() {
         println!("-------------------------------------------");
         println!("rd: {:?}", rd);
-        println!("fitness: {:?}", new_fitness[rd.idx]);
-        println!("genome: {:?}", new_pop[rd.idx]);
+        println!("fitness: {:?}", fit[rd.idx]);
+        println!("genome: {:?}", pop[rd.idx]);
     }
 }

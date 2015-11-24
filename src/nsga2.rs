@@ -11,14 +11,14 @@ pub trait MultiObjective {
     fn get_f32_objective(&self, i: usize) -> f32;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MultiObjective2<T>
-    where T: Sized + PartialOrd
+    where T: Sized + PartialOrd + Copy + Clone
 {
     objectives: [T; 2],
 }
 
-impl<T:Sized+PartialOrd> From<(T, T)> for MultiObjective2<T> {
+impl<T:Sized+PartialOrd+Copy+Clone> From<(T, T)> for MultiObjective2<T> {
     fn from(t: (T, T)) -> MultiObjective2<T> {
         MultiObjective2 {objectives: [t.0, t.1]}
     }
