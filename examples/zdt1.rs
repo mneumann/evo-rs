@@ -5,7 +5,7 @@ extern crate evo;
 
 use rand::{Rng, Closed01};
 
-use evo::nsga2::{self, MultiObjective2};
+use evo::nsga2::{self, MultiObjective2, Mate};
 use evo::crossover::sbx_single_var_bounded;
 
 /// optimal pareto front (f_1, 1 - sqrt(f_1))
@@ -63,10 +63,6 @@ impl MyGenome {
                           .collect();
         MyGenome::new(xs)
     }
-}
-
-trait Mate<T> {
-    fn mate(&mut self, p1: &T, p2: &T) -> T;
 }
 
 struct Mating<R: Rng> {

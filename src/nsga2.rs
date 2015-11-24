@@ -2,13 +2,21 @@ use std::cmp::{self, Ordering};
 use std::f32;
 use std::convert::From;
 
+pub trait Mate<T> {
+    fn mate(&mut self, p1: &T, p2: &T) -> T;
+}
+
 pub trait Dominate<Rhs=Self> {
     fn dominates(&self, other: &Rhs) -> bool;
 }
 
 pub trait MultiObjective {
     fn num_objectives() -> usize;
-    fn get_f32_objective(&self, i: usize) -> f32;
+
+    fn cmp_objective(&self, other: &Self, objective: usize) -> Ordering;
+
+    // Distance between self and other
+    fn dist_objective(&self, other: &Self, objective: usize) -> f32;
 }
 
 #[derive(Debug, Clone)]
@@ -28,8 +36,11 @@ impl MultiObjective for MultiObjective2<f32> {
     fn num_objectives() -> usize {
         2
     }
-    fn get_f32_objective(&self, i: usize) -> f32 {
-        self.objectives[i]
+    fn cmp_objective(&self, other: &Self, objective: usize) -> Ordering {
+        self.objectives[objective].partial_cmp(&other.objectives[objective]).unwrap()
+    }
+    fn dist_objective(&self, other: &Self, objective: usize) -> f32 {
+        self.objectives[objective] - other.objectives[objective]
     }
 }
 
@@ -160,24 +171,22 @@ fn crowding_distance_assignment<P: MultiObjective>(solutions: &[P],
     for m in 0..P::num_objectives() {
         // sort using objective `m`
         indices.sort_by(|&a, &b| {
-            solutions[individuals_idx[a]]
-                .get_f32_objective(m)
-                .partial_cmp(&solutions[individuals_idx[b]].get_f32_objective(m))
-                .unwrap()
+            solutions[individuals_idx[a]].cmp_objective(&solutions[individuals_idx[b]], m)
         });
         distance[indices[0]] = f32::INFINITY;
         distance[indices[l - 1]] = f32::INFINITY;
-        let min_f = solutions[individuals_idx[indices[0]]].get_f32_objective(m);
-        let max_f = solutions[individuals_idx[indices[l - 1]]].get_f32_objective(m);
-        if min_f != max_f {
-            let norm = P::num_objectives() as f32 * (max_f - min_f);
+
+        let min_idx = individuals_idx[indices[0]];
+        let max_idx = individuals_idx[indices[l - 1]];
+
+        let dist_max_min = solutions[max_idx].dist_objective(&solutions[min_idx], m);
+        if dist_max_min != 0.0 {
+            let norm = P::num_objectives() as f32 * dist_max_min;
             debug_assert!(norm != 0.0);
             for i in 1..(l - 1) {
-                distance[indices[i]] += (solutions[individuals_idx[indices[i + 1]]]
-                                             .get_f32_objective(m) -
-                                         solutions[individuals_idx[indices[i - 1]]]
-                                             .get_f32_objective(m)) /
-                                        norm;
+                let next_idx = individuals_idx[indices[i + 1]];
+                let prev_idx = individuals_idx[indices[i - 1]];
+                distance[indices[i]] += solutions[next_idx].dist_objective(&solutions[prev_idx], m) / norm;
             }
         }
     }
