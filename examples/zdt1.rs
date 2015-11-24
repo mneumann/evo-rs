@@ -65,31 +65,36 @@ impl MyGenome {
     }
 }
 
-fn iterate<R: Rng>(rng: &mut R,
-                   population: Vec<MyGenome>,
-                   fitness: Vec<MultiObjective2<f32>>,
-                   pop_size: usize,
-                   offspring_size: usize,
-                   eta: f32)
-                   -> (Vec<MyGenome>, Vec<MultiObjective2<f32>>) {
+trait Mate<T> {
+    fn mate(&mut self, p1: &T, p2: &T) -> T;
+}
+
+struct Mating<R: Rng> {
+    rng: R,
+    eta: f32,
+}
+
+impl<R:Rng> Mate<MyGenome> for Mating<R> {
+    fn mate(&mut self, p1: &MyGenome, p2: &MyGenome) -> MyGenome {
+        MyGenome::crossover1(&mut self.rng, (p1, p2), self.eta)
+    }
+}
+
+fn iterate<R: Rng, M: Mate<MyGenome>>(rng: &mut R,
+                                      population: Vec<MyGenome>,
+                                      fitness: Vec<MultiObjective2<f32>>,
+                                      pop_size: usize,
+                                      offspring_size: usize,
+                                      mating: &mut M)
+                                      -> (Vec<MyGenome>, Vec<MultiObjective2<f32>>) {
     assert!(population.len() == fitness.len());
 
     // evaluate rank and crowding distance (using select()).
     let rank_dist = nsga2::select(&fitness[..], pop_size);
     assert!(rank_dist.len() == pop_size);
 
-    //
-    // for rd in rank_dist.iter() {
-    // println!("-------------------------------------------");
-    // println!("rd: {:?}", rd);
-    // println!("fitness: {:?}", fitness[rd.idx]);
-    // println!("genome: {:?}", population[rd.idx]);
-    // }
-    //
-
     // create `offspring_size` new offspring using binary tournament (randomly
-    // select two mating
-    // partners)
+    // select two mating partners)
     let offspring: Vec<_> = (0..offspring_size)
                                 .map(|_| {
                                     // first parent. two candidates
@@ -116,9 +121,7 @@ fn iterate<R: Rng>(rng: &mut R,
 
                                     // cross-over the two parents and produce one child (throw away
                                     // second child)
-                                    MyGenome::crossover1(rng,
-                                                         (&population[p1], &population[p2]),
-                                                         eta)
+                                    mating.mate(&population[p1], &population[p2])
                                 })
                                 .collect();
 
@@ -145,12 +148,13 @@ fn iterate<R: Rng>(rng: &mut R,
     return (new_pop, new_fit);
 }
 
+
 fn main() {
     const N: usize = 2; // ZDT1 order
     const MU: usize = 600; // size of population
     const LAMBDA: usize = 300; // size of offspring population
     const ETA: f32 = 2.0; // cross-over variance
-    const NGEN: usize = 10; // number of generations
+    const NGEN: usize = 100; // number of generations
 
     let mut rng = rand::isaac::Isaac64Rng::new_unseeded();
 
@@ -166,17 +170,16 @@ fn main() {
     let mut pop = initial_population;
     let mut fit = fitness;
 
-    for i in 0..NGEN {
-        println!("===========================================================");
-        println!("Iteration: {}", i);
-        println!("===========================================================");
+    let mut mating = Mating {
+        rng: rand::isaac::Isaac64Rng::new_unseeded(),
+        eta: ETA,
+    };
 
-        let (new_pop, new_fit) = iterate(&mut rng, pop, fit, MU, LAMBDA, ETA);
+    for _ in 0..NGEN {
+        let (new_pop, new_fit) = iterate(&mut rng, pop, fit, MU, LAMBDA, &mut mating);
         pop = new_pop;
         fit = new_fit;
     }
-    println!("===========================================================");
-    println!("END");
     println!("===========================================================");
 
     // finally evaluate rank and crowding distance (using select()).
