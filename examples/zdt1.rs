@@ -5,7 +5,7 @@ extern crate evo;
 
 use rand::{Rng, Closed01};
 
-use evo::nsga2::{self, MultiObjective2, Mate};
+use evo::nsga2::{self, MultiObjective2, Mate, FitnessEval};
 use evo::crossover::sbx_single_var_bounded;
 
 /// optimal pareto front (f_1, 1 - sqrt(f_1))
@@ -76,6 +76,14 @@ impl<R:Rng> Mate<MyGenome> for Mating<R> {
     }
 }
 
+struct Eval;
+
+impl FitnessEval<MyGenome, MultiObjective2<f32>> for Eval {
+    fn fitness(&mut self, pop: &[MyGenome]) -> Vec<MultiObjective2<f32>> {
+        pop.iter().map(|ind| ind.fitness()).collect()
+    }
+}
+
 fn main() {
     const N: usize = 2; // ZDT1 order
     const MU: usize = 600; // size of population
@@ -90,12 +98,10 @@ fn main() {
                                                 .map(|_| MyGenome::random(&mut rng, N))
                                                 .collect();
 
-    fn fitness_eval(pop: &[MyGenome]) -> Vec<MultiObjective2<f32>> {
-        pop.iter().map(|ind| ind.fitness()).collect()
-    }
+    let mut eval = Eval;
 
     // evaluate fitness
-    let fitness: Vec<_> = fitness_eval(&initial_population[..]);
+    let fitness: Vec<_> = eval.fitness(&initial_population[..]);
     assert!(fitness.len() == initial_population.len());
 
     let mut pop = initial_population;
@@ -110,7 +116,7 @@ fn main() {
         let (new_pop, new_fit) = nsga2::iterate(&mut rng,
                                                 pop,
                                                 fit,
-                                                fitness_eval,
+                                                &mut eval,
                                                 MU,
                                                 LAMBDA,
                                                 &mut mating);

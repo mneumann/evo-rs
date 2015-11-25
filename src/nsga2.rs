@@ -272,15 +272,19 @@ pub fn select<P: Dominate + MultiObjective>(solutions: &[P], n: usize) -> Vec<So
     return selection;
 }
 
+pub trait FitnessEval<I, F:Dominate+MultiObjective+Clone> {
+    fn fitness(&mut self, &[I]) -> Vec<F>;
+}
+
 pub fn iterate<R: Rng,
                I: Clone,
                M: Mate<I>,
                F: Dominate + MultiObjective + Clone,
-               E: FnMut(&[I]) -> Vec<F>>
+               E: FitnessEval<I, F>>
     (rng: &mut R,
      population: Vec<I>,
      fitness: Vec<F>,
-     mut fitness_eval: E,
+     fitness_eval: &mut E,
      pop_size: usize,
      offspring_size: usize,
      mating: &mut M)
@@ -326,7 +330,7 @@ pub fn iterate<R: Rng,
     assert!(offspring.len() == offspring_size);
 
     // evaluate fitness of offspring
-    let fitness_offspring = fitness_eval(&offspring[..]);
+    let fitness_offspring = fitness_eval.fitness(&offspring[..]);
     assert!(fitness_offspring.len() == offspring.len());
 
     // merge population and offspring, then select
