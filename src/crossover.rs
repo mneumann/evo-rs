@@ -1,6 +1,3 @@
-#[cfg(test)]
-use rand::Rand;
-
 use rand::Rng;
 
 #[inline]
@@ -132,4 +129,49 @@ fn test_sbx() {
              child1,
              child2);
     println!("beta: {:?}", beta);
+}
+
+pub fn linear_2point_crossover<T:Clone>(p1: &[T], p2: &[T], cut_pt1: (usize, usize), cut_pt2: (usize, usize)) -> Vec<T> {
+    assert!(cut_pt1.0 <= cut_pt1.1);
+    assert!(cut_pt2.0 <= cut_pt2.1);
+    assert!(cut_pt1.0 <= p1.len());
+    assert!(cut_pt1.1 <= p1.len());
+    assert!(cut_pt2.0 <= p2.len());
+    assert!(cut_pt2.1 <= p2.len());
+
+    let len1 = cut_pt1.1 - cut_pt1.0;
+    let len2 = cut_pt2.1 - cut_pt2.0;
+
+    let len = p1.len() - /* cut out */ len1 + /* insert */ len2;
+
+    let mut res = Vec::with_capacity(len);
+    for e in &p1[..cut_pt1.0] { res.push(e.clone()); }
+    for e in &p2[cut_pt2.0..cut_pt2.1] { res.push(e.clone()); }
+    for e in &p1[cut_pt1.1..] { res.push(e.clone()); }
+
+    assert!(res.len() == len);
+    return res;
+}
+
+#[test]
+fn test_linear_2point_crossover() {
+    let p1 = vec![1,2,3,4];
+    //             ^ ^
+    let p2 = vec![5,6,7,8,9];
+    //             ^     ^
+
+    let c = linear_2point_crossover(&p1[..], &p2[..], (1,2), (1, 4));
+    assert_eq!(&[1, 6,7,8, 3,4], &c[..]);
+
+    let c = linear_2point_crossover(&p1[..], &p2[..], (1,2), (1, 5));
+    assert_eq!(&[1, 6,7,8,9, 3,4], &c[..]);
+
+    let c = linear_2point_crossover(&p1[..], &p2[..], (1,2), (0, 5));
+    assert_eq!(&[1, 5,6,7,8,9, 3,4], &c[..]);
+
+    let c = linear_2point_crossover(&p1[..], &p2[..], (1,1), (0, 5));
+    assert_eq!(&[1, 5,6,7,8,9, 2,3,4], &c[..]);
+
+    let c = linear_2point_crossover(&p1[..], &p2[..], (0,4), (0, 5));
+    assert_eq!(&[5,6,7,8,9], &c[..]);
 }
