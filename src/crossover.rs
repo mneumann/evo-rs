@@ -99,7 +99,7 @@ pub fn simulated_binary_crossover<R: Rng>(rng: &mut R,
                                           eta: f32) {
     assert!(ind1.len() == ind2.len());
 
-    let mut iter = ind1.iter_mut().zip(ind2.iter_mut());
+    let iter = ind1.iter_mut().zip(ind2.iter_mut());
     for (x1, x2) in iter {
         let (c1, c2) = sbx_single_var(rng, (*x1, *x2), eta);
         *x1 = c1;
