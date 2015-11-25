@@ -41,7 +41,7 @@ pub trait MultiObjective {
 pub struct MultiObjective2<T>
     where T: Sized + PartialOrd + Copy + Clone
 {
-    objectives: [T; 2],
+    pub objectives: [T; 2],
 }
 
 impl<T:Sized+PartialOrd+Copy+Clone> From<(T, T)> for MultiObjective2<T> {
@@ -75,7 +75,7 @@ impl<T:Sized+PartialOrd> Dominate for MultiObjective2<T> {
 pub struct MultiObjective3<T>
     where T: Sized + PartialOrd + Copy + Clone
 {
-    objectives: [T; 3],
+    pub objectives: [T; 3],
 }
 
 impl<T:Sized+PartialOrd+Copy+Clone> From<(T, T, T)> for MultiObjective3<T> {
