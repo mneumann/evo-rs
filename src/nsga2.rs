@@ -2,6 +2,7 @@ use std::cmp::{self, Ordering};
 use std::f32;
 use std::convert::From;
 use rand::Rng;
+use std::ops::Sub;
 
 pub trait Mate<T> {
     fn mate(&mut self, p1: &T, p2: &T) -> T;
@@ -9,6 +10,22 @@ pub trait Mate<T> {
 
 pub trait Dominate<Rhs=Self> {
     fn dominates(&self, other: &Rhs) -> bool;
+}
+
+fn dominates_slices<T: Sized + PartialOrd>(sa: &[T], sb: &[T]) -> bool {
+    assert!(sa.len() == sb.len());
+    assert!(sa.len() > 0);
+
+    let mut less_cnt = 0;
+    for (a, b) in sa.iter().zip(sb.iter()) {
+        if a > b {
+            return false;
+        } else if a < b {
+            less_cnt += 1;
+        }
+    }
+
+    return less_cnt > 0;
 }
 
 pub trait MultiObjective {
@@ -33,7 +50,9 @@ impl<T:Sized+PartialOrd+Copy+Clone> From<(T, T)> for MultiObjective2<T> {
     }
 }
 
-impl MultiObjective for MultiObjective2<f32> {
+impl<T,R> MultiObjective for MultiObjective2<T>
+where T: Copy + PartialOrd + Sub<Output=R>,
+      R: Into<f32> {
     fn num_objectives() -> usize {
         2
     }
@@ -41,34 +60,45 @@ impl MultiObjective for MultiObjective2<f32> {
         self.objectives[objective].partial_cmp(&other.objectives[objective]).unwrap()
     }
     fn dist_objective(&self, other: &Self, objective: usize) -> f32 {
-        self.objectives[objective] - other.objectives[objective]
+        (self.objectives[objective] - other.objectives[objective]).into()
     }
 }
 
-#[derive(Debug)]
+impl<T:Sized+PartialOrd> Dominate for MultiObjective2<T> {
+    fn dominates(&self, other: &Self) -> bool {
+        dominates_slices(&self.objectives[..], &other.objectives[..])
+    }
+}
+
+
+#[derive(Debug, Clone)]
 pub struct MultiObjective3<T>
-    where T: Sized + PartialOrd
+    where T: Sized + PartialOrd + Copy + Clone
 {
     objectives: [T; 3],
 }
 
-fn dominates_slices<T: Sized + PartialOrd>(sa: &[T], sb: &[T]) -> bool {
-    assert!(sa.len() == sb.len());
-    assert!(sa.len() > 0);
-
-    let mut less_cnt = 0;
-    for (a, b) in sa.iter().zip(sb.iter()) {
-        if a > b {
-            return false;
-        } else if a < b {
-            less_cnt += 1;
-        }
+impl<T:Sized+PartialOrd+Copy+Clone> From<(T, T, T)> for MultiObjective3<T> {
+    fn from(t: (T, T, T)) -> MultiObjective3<T> {
+        MultiObjective3 { objectives: [t.0, t.1, t.2] }
     }
-
-    return less_cnt > 0;
 }
 
-impl<T:Sized+PartialOrd> Dominate for MultiObjective2<T> {
+impl<T,R> MultiObjective for MultiObjective3<T>
+where T: Copy + PartialOrd + Sub<Output=R>,
+      R: Into<f32> {
+    fn num_objectives() -> usize {
+        3
+    }
+    fn cmp_objective(&self, other: &Self, objective: usize) -> Ordering {
+        self.objectives[objective].partial_cmp(&other.objectives[objective]).unwrap()
+    }
+    fn dist_objective(&self, other: &Self, objective: usize) -> f32 {
+        (self.objectives[objective] - other.objectives[objective]).into()
+    }
+}
+
+impl<T:Sized+PartialOrd> Dominate for MultiObjective3<T> {
     fn dominates(&self, other: &Self) -> bool {
         dominates_slices(&self.objectives[..], &other.objectives[..])
     }
