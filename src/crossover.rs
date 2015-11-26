@@ -1,4 +1,5 @@
 use rand::Rng;
+use rand::distributions::{IndependentSample, Range};
 
 #[inline]
 fn sbx_beta(u: f32, eta: f32) -> f32 {
@@ -151,6 +152,25 @@ pub fn linear_2point_crossover<T:Clone>(p1: &[T], p2: &[T], cut_pt1: (usize, usi
 
     assert!(res.len() == len);
     return res;
+}
+
+pub fn linear_2point_crossover_random<R:Rng, T:Clone>(rng: &mut R, p1: &[T], p2: &[T]) -> Vec<T> {
+    let r1 = Range::new(0, p1.len());
+    let r2 = Range::new(0, p2.len());
+    let pt1 = (r1.ind_sample(rng), r1.ind_sample(rng));
+    let pt2 = (r2.ind_sample(rng), r2.ind_sample(rng));
+
+    let pt1 = if pt1.0 > pt1.1 {
+        (pt1.1, pt1.0)
+    } else {
+        pt1
+    };
+    let pt2 = if pt2.0 > pt2.1 {
+        (pt2.1, pt2.0)
+    } else {
+        pt2
+    };
+    linear_2point_crossover(p1, p2, pt1, pt2)
 }
 
 #[test]
