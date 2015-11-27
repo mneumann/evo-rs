@@ -65,14 +65,13 @@ impl MyGenome {
     }
 }
 
-struct Mating<R: Rng> {
-    rng: R,
+struct Mating {
     eta: f32,
 }
 
-impl<R:Rng> Mate<MyGenome> for Mating<R> {
-    fn mate(&mut self, p1: &MyGenome, p2: &MyGenome) -> MyGenome {
-        MyGenome::crossover1(&mut self.rng, (p1, p2), self.eta)
+impl Mate<MyGenome> for Mating {
+    fn mate<R:Rng>(&mut self, rng: &mut R, p1: &MyGenome, p2: &MyGenome) -> MyGenome {
+        MyGenome::crossover1(rng, (p1, p2), self.eta)
     }
 }
 
@@ -108,7 +107,6 @@ fn main() {
     let mut fit = fitness;
 
     let mut mating = Mating {
-        rng: rand::isaac::Isaac64Rng::new_unseeded(),
         eta: ETA,
     };
 

@@ -5,7 +5,7 @@ use rand::Rng;
 use std::ops::Sub;
 
 pub trait Mate<T> {
-    fn mate(&mut self, p1: &T, p2: &T) -> T;
+    fn mate<R:Rng>(&mut self, rng: &mut R, p1: &T, p2: &T) -> T;
 }
 
 pub trait Dominate<Rhs=Self> {
@@ -323,7 +323,7 @@ pub fn iterate<R: Rng,
 
                                     // cross-over the two parents and produce one child (throw away
                                     // second child)
-                                    mating.mate(&population[p1], &population[p2])
+                                    mating.mate(rng, &population[p1], &population[p2])
                                 })
                                 .collect();
 
