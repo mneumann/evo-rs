@@ -10,7 +10,6 @@ use rand::Rand;
 use std::cmp::{PartialOrd, Ordering};
 use simple_parallel::Pool;
 pub use prob::{Probability, ProbabilityValue};
-pub use selection::tournament_selection_fast;
 
 pub mod bit_string;
 pub mod nsga2;

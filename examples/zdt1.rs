@@ -117,6 +117,7 @@ fn main() {
                                                 &mut eval,
                                                 MU,
                                                 LAMBDA,
+                                                2,
                                                 &mut mating);
         pop = new_pop;
         fit = new_fit;

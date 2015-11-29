@@ -18,12 +18,12 @@ use evo::{
     OpSelect,
     OpVariation,
     VariationMethod,
-    tournament_selection_fast,
     ea_mu_plus_lambda,
     Probability,
     ProbabilityValue,
     MaxFitness,
 };
+use evo::selection::tournament_selection_fast;
 use evo::bit_string::{
     BitString,
     crossover_one_point,

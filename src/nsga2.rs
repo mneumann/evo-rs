@@ -3,9 +3,10 @@ use std::f32;
 use std::convert::From;
 use rand::Rng;
 use std::ops::Sub;
+use super::selection::tournament_selection_fast;
 
 pub trait Mate<T> {
-    fn mate<R:Rng>(&mut self, rng: &mut R, p1: &T, p2: &T) -> T;
+    fn mate<R: Rng>(&mut self, rng: &mut R, p1: &T, p2: &T) -> T;
 }
 
 pub trait Dominate<Rhs=Self> {
@@ -287,39 +288,38 @@ pub fn iterate<R: Rng,
      fitness_eval: &mut E,
      pop_size: usize,
      offspring_size: usize,
+     tournament_k: usize,
      mating: &mut M)
      -> (Vec<I>, Vec<F>) {
+    assert!(tournament_k > 0);
     assert!(population.len() == fitness.len());
 
     // evaluate rank and crowding distance (using select()).
     let rank_dist = select(&fitness[..], pop_size);
     assert!(rank_dist.len() == pop_size);
 
-    // create `offspring_size` new offspring using binary tournament (randomly
-    // select two mating partners)
+    // create `offspring_size` new offspring using k-tournament (
+    // select the best individual out of k randomly choosen individuals)
     let offspring: Vec<_> = (0..offspring_size)
                                 .map(|_| {
-                                    // first parent. two candidates
-                                    let p1cand = (rng.gen_range(0, rank_dist.len()),
-                                                  rng.gen_range(0, rank_dist.len()));
 
-                                    // second parent. two candidates
-                                    let p2cand = (rng.gen_range(0, rank_dist.len()),
-                                                  rng.gen_range(0, rank_dist.len()));
+                                    // first parent. k candidates
+                                    let p1 = tournament_selection_fast(rng,
+                                                                       |i1, i2| {
+                                                                           rank_dist[i1] <
+                                                                           rank_dist[i2]
+                                                                       },
+                                                                       rank_dist.len(),
+                                                                       tournament_k);
 
-                                    // choose the better candiate (first parent)
-                                    let p1 = if rank_dist[p1cand.0] < rank_dist[p1cand.1] {
-                                        p1cand.0
-                                    } else {
-                                        p1cand.1
-                                    };
-
-                                    // choose the better candiate (second parent)
-                                    let p2 = if rank_dist[p2cand.0] < rank_dist[p2cand.1] {
-                                        p2cand.0
-                                    } else {
-                                        p2cand.1
-                                    };
+                                    // second parent. k candidates
+                                    let p2 = tournament_selection_fast(rng,
+                                                                       |i1, i2| {
+                                                                           rank_dist[i1] <
+                                                                           rank_dist[i2]
+                                                                       },
+                                                                       rank_dist.len(),
+                                                                       tournament_k);
 
                                     // cross-over the two parents and produce one child (throw away
                                     // second child)
