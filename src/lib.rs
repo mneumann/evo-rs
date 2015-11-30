@@ -6,7 +6,6 @@
 extern crate bit_vec;
 extern crate rand;
 extern crate simple_parallel;
-use rand::Rand;
 use std::cmp::{PartialOrd, Ordering};
 use simple_parallel::Pool;
 pub use prob::{Probability, ProbabilityValue};
@@ -70,10 +69,6 @@ impl<I:Individual> UnratedPopulation<I> {
 
     pub fn add(&mut self, ind: I) {
         self.population.push(ind);
-    }
-
-    fn extend_with(&mut self, p: UnratedPopulation<I>) {
-        self.population.extend(p.population);
     }
 
     /// Evaluates the whole population, i.e. determines the fitness of

@@ -65,7 +65,7 @@ where T: Copy + PartialOrd + Sub<Output=R>,
     }
 }
 
-impl<T:Sized+PartialOrd> Dominate for MultiObjective2<T> {
+impl<T:Sized+PartialOrd+Copy> Dominate for MultiObjective2<T> {
     fn dominates(&self, other: &Self) -> bool {
         dominates_slices(&self.objectives[..], &other.objectives[..])
     }
@@ -99,7 +99,7 @@ where T: Copy + PartialOrd + Sub<Output=R>,
     }
 }
 
-impl<T:Sized+PartialOrd> Dominate for MultiObjective3<T> {
+impl<T:Sized+PartialOrd+Copy> Dominate for MultiObjective3<T> {
     fn dominates(&self, other: &Self) -> bool {
         dominates_slices(&self.objectives[..], &other.objectives[..])
     }
@@ -369,7 +369,8 @@ fn test_dominates() {
     assert_eq!(false, c.dominates(&c));
 }
 
-fn main() {
+#[test]
+fn test_abc() {
     let mut solutions: Vec<MultiObjective2<f32>> = Vec::new();
     solutions.push(MultiObjective2 { objectives: [1.0, 0.1] });
     solutions.push(MultiObjective2 { objectives: [0.1, 0.1] });
