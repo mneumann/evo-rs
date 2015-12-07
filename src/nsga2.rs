@@ -322,7 +322,18 @@ pub fn iterate<R: Rng,
                                                                        tournament_k);
 
                                     // cross-over the two parents and produce one child (throw away
-                                    // second child)
+                                    // second child XXX)
+
+                                    // The potentially dominating individual is gives as first
+                                    // parameter.
+                                    let (p1, p2) = if rank_dist[p1] < rank_dist[p2] {
+                                        (p1, p2)
+                                    } else if rank_dist[p2] < rank_dist[p1] {
+                                        (p2, p1)
+                                    } else {
+                                        (p1, p2)
+                                    };
+
                                     mating.mate(rng, &population[p1], &population[p2])
                                 })
                                 .collect();
