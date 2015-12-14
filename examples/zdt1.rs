@@ -65,19 +65,17 @@ impl MyGenome {
     }
 }
 
-struct Mating {
-    eta: f32,
+struct Toolbox {
+    mating_eta: f32,
 }
 
-impl Mate<MyGenome> for Mating {
+impl Mate<MyGenome> for Toolbox {
     fn mate<R:Rng>(&mut self, rng: &mut R, p1: &MyGenome, p2: &MyGenome) -> MyGenome {
-        MyGenome::crossover1(rng, (p1, p2), self.eta)
+        MyGenome::crossover1(rng, (p1, p2), self.mating_eta)
     }
 }
 
-struct Eval;
-
-impl FitnessEval<MyGenome, MultiObjective2<f32>> for Eval {
+impl FitnessEval<MyGenome, MultiObjective2<f32>> for Toolbox {
     fn fitness(&mut self, pop: &[MyGenome]) -> Vec<MultiObjective2<f32>> {
         pop.iter().map(|ind| ind.fitness()).collect()
     }
@@ -92,33 +90,30 @@ fn main() {
 
     let mut rng = rand::isaac::Isaac64Rng::new_unseeded();
 
+    let mut toolbox = Toolbox {
+        mating_eta: ETA,
+    };
+
     // create initial random population
     let initial_population: Vec<MyGenome> = (0..MU)
                                                 .map(|_| MyGenome::random(&mut rng, N))
                                                 .collect();
 
-    let mut eval = Eval;
-
     // evaluate fitness
-    let fitness: Vec<_> = eval.fitness(&initial_population[..]);
+    let fitness: Vec<_> = toolbox.fitness(&initial_population[..]);
     assert!(fitness.len() == initial_population.len());
 
     let mut pop = initial_population;
     let mut fit = fitness;
 
-    let mut mating = Mating {
-        eta: ETA,
-    };
-
     for _ in 0..NGEN {
         let (new_pop, new_fit) = nsga2::iterate(&mut rng,
                                                 pop,
                                                 fit,
-                                                &mut eval,
                                                 MU,
                                                 LAMBDA,
                                                 2,
-                                                &mut mating);
+                                                &mut toolbox);
         pop = new_pop;
         fit = new_fit;
     }

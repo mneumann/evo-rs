@@ -279,17 +279,15 @@ pub trait FitnessEval<I, F:Dominate+MultiObjective+Clone> {
 
 pub fn iterate<R: Rng,
                I: Clone,
-               M: Mate<I>,
                F: Dominate + MultiObjective + Clone,
-               E: FitnessEval<I, F>>
+               T: Mate<I> + FitnessEval<I, F>>
     (rng: &mut R,
      population: Vec<I>,
      fitness: Vec<F>,
-     fitness_eval: &mut E,
      pop_size: usize,
      offspring_size: usize,
      tournament_k: usize,
-     mating: &mut M)
+     toolbox: &mut T)
      -> (Vec<I>, Vec<F>) {
     assert!(tournament_k > 0);
     assert!(population.len() == fitness.len());
@@ -334,14 +332,14 @@ pub fn iterate<R: Rng,
                                         (p1, p2)
                                     };
 
-                                    mating.mate(rng, &population[p1], &population[p2])
+                                    toolbox.mate(rng, &population[p1], &population[p2])
                                 })
                                 .collect();
 
     assert!(offspring.len() == offspring_size);
 
     // evaluate fitness of offspring
-    let fitness_offspring = fitness_eval.fitness(&offspring[..]);
+    let fitness_offspring = toolbox.fitness(&offspring[..]);
     assert!(fitness_offspring.len() == offspring.len());
 
     // merge population and offspring, then select
