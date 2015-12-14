@@ -9,10 +9,10 @@ use rand::Rng;
 /// but the probability is very low if `n` is high compared to `k`.
 #[inline]
 pub fn tournament_selection_fast<R: Rng, F>(rng: &mut R,
-                                          better_than: F,
-                                          n: usize,
-                                          k: usize)
-                                          -> usize
+                                            better_than: F,
+                                            n: usize,
+                                            k: usize)
+                                            -> usize
     where F: Fn(usize, usize) -> bool
 {
     assert!(n > 0);
@@ -30,4 +30,3 @@ pub fn tournament_selection_fast<R: Rng, F>(rng: &mut R,
 
     return best;
 }
-

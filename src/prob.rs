@@ -1,5 +1,5 @@
-use ::std::ops::Add;
-use ::rand::{Rand, Rng};
+use std::ops::Add;
+use rand::{Rand, Rng};
 
 /// A probability is a value in the range [0.0, 1.0].
 /// A probability of 1.0 means `always`, that of 0.0

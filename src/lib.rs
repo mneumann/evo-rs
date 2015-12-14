@@ -20,7 +20,7 @@ pub mod prob;
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct MaxFitness<T: PartialOrd + Clone + Send + Default>(pub T);
 
-impl<T:PartialOrd+Send+Clone+Default> PartialOrd for MaxFitness<T> {
+impl<T: PartialOrd + Send + Clone + Default> PartialOrd for MaxFitness<T> {
     #[inline]
     fn partial_cmp(&self, other: &MaxFitness<T>) -> Option<Ordering> {
         self.0.partial_cmp(&other.0).map(|i| i.reverse())
@@ -43,12 +43,11 @@ pub struct UnratedPopulation<I: Individual> {
 
 /// Manages a population of rated individuals.
 #[derive(Clone, Debug)]
-pub struct RatedPopulation<I: Individual, F:PartialOrd> {
-    rated_population: Vec<(I,F)>,
+pub struct RatedPopulation<I: Individual, F: PartialOrd> {
+    rated_population: Vec<(I, F)>,
 }
 
-impl<I:Individual> UnratedPopulation<I> {
-
+impl<I: Individual> UnratedPopulation<I> {
     pub fn new() -> UnratedPopulation<I> {
         UnratedPopulation { population: Vec::new() }
     }
@@ -79,24 +78,34 @@ impl<I:Individual> UnratedPopulation<I> {
               F: PartialOrd
     {
         let len = self.population.len();
-        let rated_population : Vec<(I,F)> = self.population.into_iter().map(|ind| {
-            let fitness = evaluator.fitness(&ind);
-            (ind, fitness)
-        }).collect();
+        let rated_population: Vec<(I, F)> = self.population
+                                                .into_iter()
+                                                .map(|ind| {
+                                                    let fitness = evaluator.fitness(&ind);
+                                                    (ind, fitness)
+                                                })
+                                                .collect();
         debug_assert!(rated_population.len() == len);
-        RatedPopulation {rated_population: rated_population}
+        RatedPopulation { rated_population: rated_population }
     }
 
     /// Evaluate the population in parallel using the threadpool `pool`.
-    pub fn rate_in_parallel<E, F>(self, evaluator: &E, pool: &mut Pool, chunk_size: usize) -> RatedPopulation<I, F>
+    pub fn rate_in_parallel<E, F>(self,
+                                  evaluator: &E,
+                                  pool: &mut Pool,
+                                  chunk_size: usize)
+                                  -> RatedPopulation<I, F>
         where E: Evaluator<I, F>,
-              F: PartialOrd+Send+Default,
+              F: PartialOrd + Send + Default
     {
         let len = self.population.len();
-        let mut rated_population : Vec<(I,F)> = self.population.into_iter().map(|ind| {
-            let fitness = F::default(); 
-            (ind, fitness)
-        }).collect();
+        let mut rated_population: Vec<(I, F)> = self.population
+                                                    .into_iter()
+                                                    .map(|ind| {
+                                                        let fitness = F::default();
+                                                        (ind, fitness)
+                                                    })
+                                                    .collect();
 
         pool.for_(rated_population.chunks_mut(chunk_size), |chunk| {
             for &mut (ref ind, ref mut fitness) in chunk.iter_mut() {
@@ -105,13 +114,11 @@ impl<I:Individual> UnratedPopulation<I> {
         });
 
         debug_assert!(rated_population.len() == len);
-        RatedPopulation {rated_population: rated_population}
+        RatedPopulation { rated_population: rated_population }
     }
-
 }
 
-impl<I:Individual, F:PartialOrd> RatedPopulation<I, F>
-{
+impl<I: Individual, F: PartialOrd> RatedPopulation<I, F> {
     pub fn new() -> RatedPopulation<I, F> {
         RatedPopulation { rated_population: Vec::new() }
     }
@@ -142,7 +149,7 @@ impl<I:Individual, F:PartialOrd> RatedPopulation<I, F>
     #[inline]
     pub fn get_fitness(&self, idx: usize) -> &F {
         &self.rated_population[idx].1
-    } 
+    }
 
     fn extend_with(&mut self, p: RatedPopulation<I, F>) {
         self.rated_population.extend(p.rated_population);
@@ -158,7 +165,7 @@ impl<I:Individual, F:PartialOrd> RatedPopulation<I, F>
         assert!(self.len() > 0);
         let mut fittest = 0;
 
-        for i in 1 .. self.rated_population.len() {
+        for i in 1..self.rated_population.len() {
             if self.rated_population[i].1 < self.rated_population[fittest].1 {
                 fittest = i;
             }
@@ -166,7 +173,6 @@ impl<I:Individual, F:PartialOrd> RatedPopulation<I, F>
 
         return fittest;
     }
-
 }
 
 /// Evaluates the fitness of an Individual.
@@ -202,9 +208,7 @@ pub trait OpVariation {
 
 /// Selects a random individual from the population.
 pub trait OpSelectRandomIndividual<I: Individual, F: PartialOrd> {
-    fn select_random_individual<'a>(&mut self,
-                                    population: &'a RatedPopulation<I, F>)
-                                    -> usize; // IndividualIndex
+    fn select_random_individual<'a>(&mut self, population: &'a RatedPopulation<I, F>) -> usize; // IndividualIndex
 }
 
 /// Produce new generation through selection of \mu individuals from population.
@@ -215,9 +219,9 @@ pub trait OpSelect<I: Individual, F: PartialOrd> {
 pub fn variation_or<I, F, T>(toolbox: &mut T,
                              population: &RatedPopulation<I, F>,
                              lambda: usize)
-                             -> (UnratedPopulation<I>, RatedPopulation<I,F>)
+                             -> (UnratedPopulation<I>, RatedPopulation<I, F>)
     where I: Individual,
-          F: PartialOrd+Clone,
+          F: PartialOrd + Clone,
           T: OpCrossover1<I> + OpMutate<I> + OpVariation + OpSelectRandomIndividual<I, F>
 {
     // We assume that most offspring is unrated and only a small amount of already rated offspring.
@@ -233,7 +237,8 @@ pub fn variation_or<I, F, T>(toolbox: &mut T,
                 // only the first offspring is used, the second is thrown away.
                 let parent1_idx = toolbox.select_random_individual(population);
                 let parent2_idx = toolbox.select_random_individual(population);
-                let child1 = toolbox.crossover1(population.get(parent1_idx), population.get(parent2_idx));
+                let child1 = toolbox.crossover1(population.get(parent1_idx),
+                                                population.get(parent2_idx));
                 unrated_offspring.add(child1);
             }
             VariationMethod::Mutation => {
@@ -244,7 +249,8 @@ pub fn variation_or<I, F, T>(toolbox: &mut T,
             }
             VariationMethod::Reproduction => {
                 let ind_idx = toolbox.select_random_individual(population);
-                rated_offspring.add(population.get_individual(ind_idx).clone(), population.get_fitness(ind_idx).clone());
+                rated_offspring.add(population.get_individual(ind_idx).clone(),
+                                    population.get_fitness(ind_idx).clone());
             }
         }
     }
@@ -267,8 +273,8 @@ where I: Individual,
 {
     let mut pool = simple_parallel::Pool::new(numthreads);
 
-    //let nevals = population.rate_in_parallel(evaluator, &mut pool, chunksize);
-    //stat(0, nevals, &population);
+    // let nevals = population.rate_in_parallel(evaluator, &mut pool, chunksize);
+    // stat(0, nevals, &population);
 
     for gen in 0..num_generations {
         // evaluate population. make sure that every individual has been rated.

@@ -45,15 +45,16 @@ pub struct MultiObjective2<T>
     pub objectives: [T; 2],
 }
 
-impl<T:Sized+PartialOrd+Copy+Clone> From<(T, T)> for MultiObjective2<T> {
+impl<T: Sized + PartialOrd + Copy + Clone> From<(T, T)> for MultiObjective2<T> {
     fn from(t: (T, T)) -> MultiObjective2<T> {
         MultiObjective2 { objectives: [t.0, t.1] }
     }
 }
 
-impl<T,R> MultiObjective for MultiObjective2<T>
-where T: Copy + PartialOrd + Sub<Output=R>,
-      R: Into<f32> {
+impl<T, R> MultiObjective for MultiObjective2<T>
+    where T: Copy + PartialOrd + Sub<Output = R>,
+          R: Into<f32>
+{
     fn num_objectives() -> usize {
         2
     }
@@ -65,7 +66,7 @@ where T: Copy + PartialOrd + Sub<Output=R>,
     }
 }
 
-impl<T:Sized+PartialOrd+Copy> Dominate for MultiObjective2<T> {
+impl<T: Sized + PartialOrd + Copy> Dominate for MultiObjective2<T> {
     fn dominates(&self, other: &Self) -> bool {
         dominates_slices(&self.objectives[..], &other.objectives[..])
     }
@@ -79,15 +80,16 @@ pub struct MultiObjective3<T>
     pub objectives: [T; 3],
 }
 
-impl<T:Sized+PartialOrd+Copy+Clone> From<(T, T, T)> for MultiObjective3<T> {
+impl<T: Sized + PartialOrd + Copy + Clone> From<(T, T, T)> for MultiObjective3<T> {
     fn from(t: (T, T, T)) -> MultiObjective3<T> {
         MultiObjective3 { objectives: [t.0, t.1, t.2] }
     }
 }
 
-impl<T,R> MultiObjective for MultiObjective3<T>
-where T: Copy + PartialOrd + Sub<Output=R>,
-      R: Into<f32> {
+impl<T, R> MultiObjective for MultiObjective3<T>
+    where T: Copy + PartialOrd + Sub<Output = R>,
+          R: Into<f32>
+{
     fn num_objectives() -> usize {
         3
     }
@@ -99,7 +101,7 @@ where T: Copy + PartialOrd + Sub<Output=R>,
     }
 }
 
-impl<T:Sized+PartialOrd+Copy> Dominate for MultiObjective3<T> {
+impl<T: Sized + PartialOrd + Copy> Dominate for MultiObjective3<T> {
     fn dominates(&self, other: &Self) -> bool {
         dominates_slices(&self.objectives[..], &other.objectives[..])
     }
@@ -187,9 +189,7 @@ impl PartialOrd for SolutionRankDist {
                 // reverse ordering
                 self.dist.partial_cmp(&other.dist).map(|i| i.reverse())
             }
-            other => {
-                other
-            }
+            other => other,
         }
     }
 }

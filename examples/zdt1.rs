@@ -70,7 +70,7 @@ struct Toolbox {
 }
 
 impl Mate<MyGenome> for Toolbox {
-    fn mate<R:Rng>(&mut self, rng: &mut R, p1: &MyGenome, p2: &MyGenome) -> MyGenome {
+    fn mate<R: Rng>(&mut self, rng: &mut R, p1: &MyGenome, p2: &MyGenome) -> MyGenome {
         MyGenome::crossover1(rng, (p1, p2), self.mating_eta)
     }
 }
@@ -90,9 +90,7 @@ fn main() {
 
     let mut rng = rand::isaac::Isaac64Rng::new_unseeded();
 
-    let mut toolbox = Toolbox {
-        mating_eta: ETA,
-    };
+    let mut toolbox = Toolbox { mating_eta: ETA };
 
     // create initial random population
     let initial_population: Vec<MyGenome> = (0..MU)
@@ -107,13 +105,7 @@ fn main() {
     let mut fit = fitness;
 
     for _ in 0..NGEN {
-        let (new_pop, new_fit) = nsga2::iterate(&mut rng,
-                                                pop,
-                                                fit,
-                                                MU,
-                                                LAMBDA,
-                                                2,
-                                                &mut toolbox);
+        let (new_pop, new_fit) = nsga2::iterate(&mut rng, pop, fit, MU, LAMBDA, 2, &mut toolbox);
         pop = new_pop;
         fit = new_fit;
     }
