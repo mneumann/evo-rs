@@ -13,22 +13,6 @@ pub trait Dominate<Rhs=Self> {
     fn dominates(&self, other: &Rhs) -> bool;
 }
 
-fn dominates_slices<T: Sized + PartialOrd>(sa: &[T], sb: &[T]) -> bool {
-    assert!(sa.len() == sb.len());
-    assert!(sa.len() > 0);
-
-    let mut less_cnt = 0;
-    for (a, b) in sa.iter().zip(sb.iter()) {
-        if a > b {
-            return false;
-        } else if a < b {
-            less_cnt += 1;
-        }
-    }
-
-    return less_cnt > 0;
-}
-
 pub trait MultiObjective {
     fn num_objectives() -> usize;
 
@@ -36,6 +20,26 @@ pub trait MultiObjective {
 
     // Distance between self and other
     fn dist_objective(&self, other: &Self, objective: usize) -> f32;
+
+}
+
+impl<T: MultiObjective> Dominate<T> for T {
+    fn dominates(&self, other: &Self) -> bool {
+        let mut less_cnt = 0;
+        for i in 0..Self::num_objectives() {
+            match self.cmp_objective(other, i) {
+                Ordering::Greater => {
+                    return false;
+                }
+                Ordering::Less => {
+                    less_cnt += 1;
+                }
+                Ordering::Equal => {
+                }
+            }
+        }
+        return less_cnt > 0;
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -66,13 +70,6 @@ impl<T, R> MultiObjective for MultiObjective2<T>
     }
 }
 
-impl<T: Sized + PartialOrd + Copy> Dominate for MultiObjective2<T> {
-    fn dominates(&self, other: &Self) -> bool {
-        dominates_slices(&self.objectives[..], &other.objectives[..])
-    }
-}
-
-
 #[derive(Debug, Clone)]
 pub struct MultiObjective3<T>
     where T: Sized + PartialOrd + Copy + Clone
@@ -98,12 +95,6 @@ impl<T, R> MultiObjective for MultiObjective3<T>
     }
     fn dist_objective(&self, other: &Self, objective: usize) -> f32 {
         (self.objectives[objective] - other.objectives[objective]).into()
-    }
-}
-
-impl<T: Sized + PartialOrd + Copy> Dominate for MultiObjective3<T> {
-    fn dominates(&self, other: &Self) -> bool {
-        dominates_slices(&self.objectives[..], &other.objectives[..])
     }
 }
 
@@ -361,9 +352,9 @@ pub fn iterate<R: Rng,
 
 #[test]
 fn test_dominates() {
-    let a = MultiObjective2 { objectives: [1.0, 0.1] };
-    let b = MultiObjective2 { objectives: [0.1, 0.1] };
-    let c = MultiObjective2 { objectives: [0.1, 1.0] };
+    let a = MultiObjective2 { objectives: [1.0f32, 0.1] };
+    let b = MultiObjective2 { objectives: [0.1f32, 0.1] };
+    let c = MultiObjective2 { objectives: [0.1f32, 1.0] };
 
     assert_eq!(false, a.dominates(&a));
     assert_eq!(false, a.dominates(&b));
