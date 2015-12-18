@@ -98,6 +98,34 @@ impl<T, R> MultiObjective for MultiObjective3<T>
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct MultiObjective4<T>
+    where T: Sized + PartialOrd + Copy + Clone
+{
+    pub objectives: [T; 4],
+}
+
+impl<T: Sized + PartialOrd + Copy + Clone> From<(T, T, T, T)> for MultiObjective4<T> {
+    fn from(t: (T, T, T, T)) -> MultiObjective4<T> {
+        MultiObjective4 { objectives: [t.0, t.1, t.2, t.3] }
+    }
+}
+
+impl<T, R> MultiObjective for MultiObjective4<T>
+    where T: Copy + PartialOrd + Sub<Output = R>,
+          R: Into<f32>
+{
+    fn num_objectives() -> usize {
+        4
+    }
+    fn cmp_objective(&self, other: &Self, objective: usize) -> Ordering {
+        self.objectives[objective].partial_cmp(&other.objectives[objective]).unwrap()
+    }
+    fn dist_objective(&self, other: &Self, objective: usize) -> f32 {
+        (self.objectives[objective] - other.objectives[objective]).into()
+    }
+}
+
 /// Stop after we have found `n` solutions (we include the whole pareto front, so it are probably more solutions).
 fn fast_non_dominated_sort<P: Dominate>(solutions: &[P], n: usize) -> Vec<Vec<usize>> {
     let mut fronts: Vec<Vec<usize>> = Vec::new();
