@@ -165,8 +165,8 @@ pub fn linear_2point_crossover<T: Clone>(p1: &[T],
 }
 
 pub fn linear_2point_crossover_random<R: Rng, T: Clone>(rng: &mut R, p1: &[T], p2: &[T]) -> Vec<T> {
-    let r1 = Range::new(0, p1.len());
-    let r2 = Range::new(0, p2.len());
+    let r1 = Range::new(0, p1.len() + 1);
+    let r2 = Range::new(0, p2.len() + 1);
     let pt1 = (r1.ind_sample(rng), r1.ind_sample(rng));
     let pt2 = (r2.ind_sample(rng), r2.ind_sample(rng));
 
@@ -184,11 +184,12 @@ pub fn linear_2point_crossover_random<R: Rng, T: Clone>(rng: &mut R, p1: &[T], p
 }
 
 #[test]
+#[cfg_attr(rustfmt, rustfmt_skip)]
 fn test_linear_2point_crossover() {
     let p1 = vec![1, 2, 3, 4];
-    // ^ ^
+    //              ^  ^
     let p2 = vec![5, 6, 7, 8, 9];
-    // ^     ^
+    //              ^        ^
 
     let c = linear_2point_crossover(&p1[..], &p2[..], (1, 2), (1, 4));
     assert_eq!(&[1, 6, 7, 8, 3, 4], &c[..]);
@@ -204,4 +205,20 @@ fn test_linear_2point_crossover() {
 
     let c = linear_2point_crossover(&p1[..], &p2[..], (0, 4), (0, 5));
     assert_eq!(&[5, 6, 7, 8, 9], &c[..]);
+}
+
+#[test]
+#[cfg_attr(rustfmt, rustfmt_skip)]
+fn test_linear_2point_crossover2() {
+    let p1 = vec![];
+    //           ^^
+    let p2 = vec![5, 6, 7, 8, 9];
+    //              ^        ^
+
+    let c = linear_2point_crossover(&p1[..], &p2[..], (0, 0), (1, 4));
+    assert_eq!(&[6, 7, 8], &c[..]);
+
+    let c = linear_2point_crossover(&p1[..], &p2[..], (0, 0), (1, 1));
+    let v: &[usize] = &[];
+    assert_eq!(v, &c[..]);
 }
