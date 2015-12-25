@@ -3,7 +3,7 @@ use std::ops::Sub;
 use std::convert::From;
 
 pub trait MultiObjective {
-    fn num_objectives() -> usize;
+    fn num_objectives(&self) -> usize;
 
     fn cmp_objective(&self, other: &Self, objective: usize) -> Ordering;
 
@@ -19,6 +19,7 @@ pub struct MultiObjective2<T>
 }
 
 impl<T: Sized + PartialOrd + Copy + Clone> From<(T, T)> for MultiObjective2<T> {
+    #[inline]
     fn from(t: (T, T)) -> MultiObjective2<T> {
         MultiObjective2 { objectives: [t.0, t.1] }
     }
@@ -28,40 +29,60 @@ impl<T, R> MultiObjective for MultiObjective2<T>
     where T: Copy + PartialOrd + Sub<Output = R>,
           R: Into<f32>
 {
-    fn num_objectives() -> usize {
+    #[inline]
+    fn num_objectives(&self) -> usize {
         2
     }
+    #[inline]
     fn cmp_objective(&self, other: &Self, objective: usize) -> Ordering {
         self.objectives[objective].partial_cmp(&other.objectives[objective]).unwrap()
     }
+    #[inline]
     fn dist_objective(&self, other: &Self, objective: usize) -> f32 {
         (self.objectives[objective] - other.objectives[objective]).into()
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct MultiObjective3<T>
-    where T: Sized + PartialOrd + Copy + Clone
+    where T: Sized + PartialOrd + Copy + Clone + Default
 {
     pub objectives: [T; 3],
 }
 
-impl<T: Sized + PartialOrd + Copy + Clone> From<(T, T, T)> for MultiObjective3<T> {
+impl<T: Sized + PartialOrd + Copy + Clone + Default> From<(T, T, T)> for MultiObjective3<T> {
+    #[inline]
     fn from(t: (T, T, T)) -> MultiObjective3<T> {
         MultiObjective3 { objectives: [t.0, t.1, t.2] }
     }
 }
 
+impl<'a, T: Sized + PartialOrd + Copy + Clone + Default> From<&'a[T]> for MultiObjective3<T> {
+    #[inline]
+    fn from(t: &'a[T]) -> MultiObjective3<T> {
+        assert!(t.len() <= 3);
+        let mut mo = Self::default();
+        for (i, &elm) in t.iter().enumerate() {
+            mo.objectives[i] = elm;
+        }
+        mo
+    }
+}
+
+
 impl<T, R> MultiObjective for MultiObjective3<T>
-    where T: Copy + PartialOrd + Sub<Output = R>,
+    where T: Copy + PartialOrd + Sub<Output = R> + Default,
           R: Into<f32>
 {
-    fn num_objectives() -> usize {
+    #[inline]
+    fn num_objectives(&self) -> usize {
         3
     }
+    #[inline]
     fn cmp_objective(&self, other: &Self, objective: usize) -> Ordering {
         self.objectives[objective].partial_cmp(&other.objectives[objective]).unwrap()
     }
+    #[inline]
     fn dist_objective(&self, other: &Self, objective: usize) -> f32 {
         (self.objectives[objective] - other.objectives[objective]).into()
     }
@@ -75,6 +96,7 @@ pub struct MultiObjective4<T>
 }
 
 impl<T: Sized + PartialOrd + Copy + Clone> From<(T, T, T, T)> for MultiObjective4<T> {
+    #[inline]
     fn from(t: (T, T, T, T)) -> MultiObjective4<T> {
         MultiObjective4 { objectives: [t.0, t.1, t.2, t.3] }
     }
@@ -84,12 +106,15 @@ impl<T, R> MultiObjective for MultiObjective4<T>
     where T: Copy + PartialOrd + Sub<Output = R>,
           R: Into<f32>
 {
-    fn num_objectives() -> usize {
+    #[inline]
+    fn num_objectives(&self) -> usize {
         4
     }
+    #[inline]
     fn cmp_objective(&self, other: &Self, objective: usize) -> Ordering {
         self.objectives[objective].partial_cmp(&other.objectives[objective]).unwrap()
     }
+    #[inline]
     fn dist_objective(&self, other: &Self, objective: usize) -> f32 {
         (self.objectives[objective] - other.objectives[objective]).into()
     }

@@ -15,7 +15,7 @@ pub trait Dominate<Rhs=Self> {
 impl<T: MultiObjective> Dominate<T> for T {
     fn dominates(&self, other: &Self) -> bool {
         let mut less_cnt = 0;
-        for i in 0..Self::num_objectives() {
+        for i in 0..cmp::min(self.num_objectives(), other.num_objectives())  {
             match self.cmp_objective(other, i) {
                 Ordering::Greater => {
                     return false;
@@ -123,7 +123,7 @@ fn crowding_distance_assignment<P: MultiObjective>(solutions: &[P],
                                                    individuals_idx: &[usize],
                                                    num_objectives: usize)
                                                    -> Vec<SolutionRankDist> {
-    assert!(num_objectives > 0 && num_objectives <= P::num_objectives());
+    assert!(num_objectives > 0);
 
     let l = individuals_idx.len();
     let mut distance: Vec<f32> = (0..l).map(|_| 0.0).collect();
@@ -221,7 +221,7 @@ pub fn iterate<R: Rng,
      num_objectives: usize,
      toolbox: &mut T)
      -> (Vec<I>, Vec<F>) {
-    assert!(num_objectives > 0 && num_objectives <= F::num_objectives());
+    assert!(num_objectives > 0);
     assert!(tournament_k > 0);
     assert!(population.len() == fitness.len());
 
