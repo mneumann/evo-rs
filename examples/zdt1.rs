@@ -106,14 +106,14 @@ fn main() {
     let mut fit = fitness;
 
     for _ in 0..NGEN {
-        let (new_pop, new_fit) = nsga2::iterate(&mut rng, pop, fit, MU, LAMBDA, 2, &mut toolbox);
+        let (new_pop, new_fit) = nsga2::iterate(&mut rng, pop, fit, MU, LAMBDA, 2, 2, &mut toolbox);
         pop = new_pop;
         fit = new_fit;
     }
     println!("===========================================================");
 
     // finally evaluate rank and crowding distance (using select()).
-    let rank_dist = nsga2::select(&fit[..], MU);
+    let rank_dist = nsga2::select(&fit[..], MU, 2);
     assert!(rank_dist.len() == MU);
 
     for rd in rank_dist.iter() {

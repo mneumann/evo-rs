@@ -94,4 +94,3 @@ impl<T, R> MultiObjective for MultiObjective4<T>
         (self.objectives[objective] - other.objectives[objective]).into()
     }
 }
-

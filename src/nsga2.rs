@@ -23,15 +23,15 @@ impl<T: MultiObjective> Dominate<T> for T {
                 Ordering::Less => {
                     less_cnt += 1;
                 }
-                Ordering::Equal => {
-                }
+                Ordering::Equal => {}
             }
         }
         return less_cnt > 0;
     }
 }
 
-/// Stop after we have found `n` solutions (we include the whole pareto front, so it are probably more solutions).
+/// Stop after we have found `n` solutions. As we include the whole pareto
+/// front, there are probably more solutions returned.
 fn fast_non_dominated_sort<P: Dominate>(solutions: &[P], n: usize) -> Vec<Vec<usize>> {
     let mut fronts: Vec<Vec<usize>> = Vec::new();
     let mut current_front = Vec::new();
@@ -120,13 +120,16 @@ impl PartialOrd for SolutionRankDist {
 
 fn crowding_distance_assignment<P: MultiObjective>(solutions: &[P],
                                                    common_rank: u32,
-                                                   individuals_idx: &[usize])
+                                                   individuals_idx: &[usize],
+                                                   num_objectives: usize)
                                                    -> Vec<SolutionRankDist> {
+    assert!(num_objectives > 0 && num_objectives <= P::num_objectives());
+
     let l = individuals_idx.len();
     let mut distance: Vec<f32> = (0..l).map(|_| 0.0).collect();
     let mut indices: Vec<usize> = (0..l).map(|i| i).collect();
 
-    for m in 0..P::num_objectives() {
+    for m in 0..num_objectives {
         // sort using objective `m`
         indices.sort_by(|&a, &b| {
             solutions[individuals_idx[a]].cmp_objective(&solutions[individuals_idx[b]], m)
@@ -139,7 +142,7 @@ fn crowding_distance_assignment<P: MultiObjective>(solutions: &[P],
 
         let dist_max_min = solutions[max_idx].dist_objective(&solutions[min_idx], m);
         if dist_max_min != 0.0 {
-            let norm = P::num_objectives() as f32 * dist_max_min;
+            let norm = num_objectives as f32 * dist_max_min;
             debug_assert!(norm != 0.0);
             for i in 1..(l - 1) {
                 let next_idx = individuals_idx[indices[i + 1]];
@@ -162,8 +165,12 @@ fn crowding_distance_assignment<P: MultiObjective>(solutions: &[P],
                   .collect();
 }
 
-/// Select `n` out of the `solutions`, assigning rank and distance.
-pub fn select<P: Dominate + MultiObjective>(solutions: &[P], n: usize) -> Vec<SolutionRankDist> {
+/// Select `n` out of the `solutions`, assigning rank and distance using the first `num_objectives`
+/// objectives.
+pub fn select<P: Dominate + MultiObjective>(solutions: &[P],
+                                            n: usize,
+                                            num_objectives: usize)
+                                            -> Vec<SolutionRankDist> {
     let mut selection = Vec::with_capacity(cmp::min(solutions.len(), n));
 
     let pareto_fronts = fast_non_dominated_sort(solutions, n);
@@ -176,7 +183,8 @@ pub fn select<P: Dominate + MultiObjective>(solutions: &[P], n: usize) -> Vec<So
 
         let mut solution_rank_dist = crowding_distance_assignment(solutions,
                                                                   rank as u32,
-                                                                  &front[..]);
+                                                                  &front[..],
+                                                                  num_objectives);
         if solution_rank_dist.len() <= missing {
             // whole front fits into result.
             selection.extend(solution_rank_dist);
@@ -210,13 +218,15 @@ pub fn iterate<R: Rng,
      pop_size: usize,
      offspring_size: usize,
      tournament_k: usize,
+     num_objectives: usize,
      toolbox: &mut T)
      -> (Vec<I>, Vec<F>) {
+    assert!(num_objectives > 0 && num_objectives <= F::num_objectives());
     assert!(tournament_k > 0);
     assert!(population.len() == fitness.len());
 
     // evaluate rank and crowding distance (using select()).
-    let rank_dist = select(&fitness[..], pop_size);
+    let rank_dist = select(&fitness[..], pop_size, num_objectives);
     assert!(rank_dist.len() == pop_size);
 
     // create `offspring_size` new offspring using k-tournament (
@@ -315,7 +325,7 @@ fn test_abc() {
     solutions.push(MultiObjective2 { objectives: [0.5, 0.5] });
 
     println!("solutions: {:?}", solutions);
-    let selection = select(&solutions[..], 5);
+    let selection = select(&solutions[..], 5, 2);
     println!("selection: {:?}", selection);
 
     let fronts = fast_non_dominated_sort(&solutions[..], 10);
@@ -323,7 +333,7 @@ fn test_abc() {
     println!("fronts: {:?}", fronts);
 
     for (rank, front) in fronts.iter().enumerate() {
-        let distances = crowding_distance_assignment(&solutions[..], rank as u32, &front[..]);
+        let distances = crowding_distance_assignment(&solutions[..], rank as u32, &front[..], 2);
         println!("front: {:?}", front);
         println!("distances: {:?}", distances);
     }
