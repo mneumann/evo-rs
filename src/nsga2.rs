@@ -296,9 +296,9 @@ pub fn iterate<R: Rng,
 fn test_dominates() {
     use super::mo::MultiObjective2;
 
-    let a = MultiObjective2 { objectives: [1.0f32, 0.1] };
-    let b = MultiObjective2 { objectives: [0.1f32, 0.1] };
-    let c = MultiObjective2 { objectives: [0.1f32, 1.0] };
+    let a = MultiObjective2::from((1.0f32, 0.1));
+    let b = MultiObjective2::from((0.1f32, 0.1));
+    let c = MultiObjective2::from((0.1f32, 1.0));
 
     assert_eq!(false, a.dominates(&a));
     assert_eq!(false, a.dominates(&b));
@@ -318,11 +318,11 @@ fn test_abc() {
     use super::mo::MultiObjective2;
 
     let mut solutions: Vec<MultiObjective2<f32>> = Vec::new();
-    solutions.push(MultiObjective2 { objectives: [1.0, 0.1] });
-    solutions.push(MultiObjective2 { objectives: [0.1, 0.1] });
-    solutions.push(MultiObjective2 { objectives: [0.1, 1.0] });
-    solutions.push(MultiObjective2 { objectives: [0.5, 0.5] });
-    solutions.push(MultiObjective2 { objectives: [0.5, 0.5] });
+    solutions.push(MultiObjective2::from((1.0, 0.1)));
+    solutions.push(MultiObjective2::from((0.1, 0.1)));
+    solutions.push(MultiObjective2::from((0.1, 1.0)));
+    solutions.push(MultiObjective2::from((0.5, 0.5)));
+    solutions.push(MultiObjective2::from((0.5, 0.5)));
 
     println!("solutions: {:?}", solutions);
     let selection = select(&solutions[..], 5, 2);
