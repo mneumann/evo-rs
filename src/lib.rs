@@ -11,6 +11,7 @@ use simple_parallel::Pool;
 pub use prob::{Probability, ProbabilityValue};
 
 pub mod bit_string;
+pub mod mo;
 pub mod nsga2;
 pub mod crossover;
 pub mod selection;

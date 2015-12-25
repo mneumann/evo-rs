@@ -1,9 +1,8 @@
 use std::cmp::{self, Ordering};
 use std::f32;
-use std::convert::From;
 use rand::Rng;
-use std::ops::Sub;
 use super::selection::tournament_selection_fast;
+use super::mo::MultiObjective;
 
 pub trait Mate<T> {
     fn mate<R: Rng>(&mut self, rng: &mut R, p1: &T, p2: &T) -> T;
@@ -11,16 +10,6 @@ pub trait Mate<T> {
 
 pub trait Dominate<Rhs=Self> {
     fn dominates(&self, other: &Rhs) -> bool;
-}
-
-pub trait MultiObjective {
-    fn num_objectives() -> usize;
-
-    fn cmp_objective(&self, other: &Self, objective: usize) -> Ordering;
-
-    // Distance between self and other
-    fn dist_objective(&self, other: &Self, objective: usize) -> f32;
-
 }
 
 impl<T: MultiObjective> Dominate<T> for T {
@@ -39,90 +28,6 @@ impl<T: MultiObjective> Dominate<T> for T {
             }
         }
         return less_cnt > 0;
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct MultiObjective2<T>
-    where T: Sized + PartialOrd + Copy + Clone
-{
-    pub objectives: [T; 2],
-}
-
-impl<T: Sized + PartialOrd + Copy + Clone> From<(T, T)> for MultiObjective2<T> {
-    fn from(t: (T, T)) -> MultiObjective2<T> {
-        MultiObjective2 { objectives: [t.0, t.1] }
-    }
-}
-
-impl<T, R> MultiObjective for MultiObjective2<T>
-    where T: Copy + PartialOrd + Sub<Output = R>,
-          R: Into<f32>
-{
-    fn num_objectives() -> usize {
-        2
-    }
-    fn cmp_objective(&self, other: &Self, objective: usize) -> Ordering {
-        self.objectives[objective].partial_cmp(&other.objectives[objective]).unwrap()
-    }
-    fn dist_objective(&self, other: &Self, objective: usize) -> f32 {
-        (self.objectives[objective] - other.objectives[objective]).into()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct MultiObjective3<T>
-    where T: Sized + PartialOrd + Copy + Clone
-{
-    pub objectives: [T; 3],
-}
-
-impl<T: Sized + PartialOrd + Copy + Clone> From<(T, T, T)> for MultiObjective3<T> {
-    fn from(t: (T, T, T)) -> MultiObjective3<T> {
-        MultiObjective3 { objectives: [t.0, t.1, t.2] }
-    }
-}
-
-impl<T, R> MultiObjective for MultiObjective3<T>
-    where T: Copy + PartialOrd + Sub<Output = R>,
-          R: Into<f32>
-{
-    fn num_objectives() -> usize {
-        3
-    }
-    fn cmp_objective(&self, other: &Self, objective: usize) -> Ordering {
-        self.objectives[objective].partial_cmp(&other.objectives[objective]).unwrap()
-    }
-    fn dist_objective(&self, other: &Self, objective: usize) -> f32 {
-        (self.objectives[objective] - other.objectives[objective]).into()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct MultiObjective4<T>
-    where T: Sized + PartialOrd + Copy + Clone
-{
-    pub objectives: [T; 4],
-}
-
-impl<T: Sized + PartialOrd + Copy + Clone> From<(T, T, T, T)> for MultiObjective4<T> {
-    fn from(t: (T, T, T, T)) -> MultiObjective4<T> {
-        MultiObjective4 { objectives: [t.0, t.1, t.2, t.3] }
-    }
-}
-
-impl<T, R> MultiObjective for MultiObjective4<T>
-    where T: Copy + PartialOrd + Sub<Output = R>,
-          R: Into<f32>
-{
-    fn num_objectives() -> usize {
-        4
-    }
-    fn cmp_objective(&self, other: &Self, objective: usize) -> Ordering {
-        self.objectives[objective].partial_cmp(&other.objectives[objective]).unwrap()
-    }
-    fn dist_objective(&self, other: &Self, objective: usize) -> f32 {
-        (self.objectives[objective] - other.objectives[objective]).into()
     }
 }
 
@@ -257,7 +162,6 @@ fn crowding_distance_assignment<P: MultiObjective>(solutions: &[P],
                   .collect();
 }
 
-
 /// Select `n` out of the `solutions`, assigning rank and distance.
 pub fn select<P: Dominate + MultiObjective>(solutions: &[P], n: usize) -> Vec<SolutionRankDist> {
     let mut selection = Vec::with_capacity(cmp::min(solutions.len(), n));
@@ -380,6 +284,8 @@ pub fn iterate<R: Rng,
 
 #[test]
 fn test_dominates() {
+    use super::mo::MultiObjective2;
+
     let a = MultiObjective2 { objectives: [1.0f32, 0.1] };
     let b = MultiObjective2 { objectives: [0.1f32, 0.1] };
     let c = MultiObjective2 { objectives: [0.1f32, 1.0] };
@@ -399,6 +305,8 @@ fn test_dominates() {
 
 #[test]
 fn test_abc() {
+    use super::mo::MultiObjective2;
+
     let mut solutions: Vec<MultiObjective2<f32>> = Vec::new();
     solutions.push(MultiObjective2 { objectives: [1.0, 0.1] });
     solutions.push(MultiObjective2 { objectives: [0.1, 0.1] });

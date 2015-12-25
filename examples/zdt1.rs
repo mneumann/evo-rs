@@ -5,7 +5,8 @@ extern crate evo;
 
 use rand::{Rng, Closed01};
 
-use evo::nsga2::{self, MultiObjective2, Mate, FitnessEval};
+use evo::nsga2::{self, Mate, FitnessEval};
+use evo::mo::MultiObjective2;
 use evo::crossover::sbx_single_var_bounded;
 
 /// optimal pareto front (f_1, 1 - sqrt(f_1))
