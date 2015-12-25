@@ -15,7 +15,7 @@ pub trait Dominate<Rhs=Self> {
 impl<T: MultiObjective> Dominate<T> for T {
     fn dominates(&self, other: &Self) -> bool {
         let mut less_cnt = 0;
-        for i in 0..cmp::min(self.num_objectives(), other.num_objectives())  {
+        for i in 0..cmp::min(self.num_objectives(), other.num_objectives()) {
             match self.cmp_objective(other, i) {
                 Ordering::Greater => {
                     return false;

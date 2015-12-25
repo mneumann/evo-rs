@@ -50,19 +50,15 @@ pub struct MultiObjective3<T>
     pub objectives: [T; 3],
 }
 
-impl<T: Sized + PartialOrd + Copy + Clone + Default> From<(T, T, T)> for MultiObjective3<T> {
+impl<T, I> From<I> for MultiObjective3<T>
+    where T: Sized + PartialOrd + Copy + Clone + Default,
+          I: Iterator<Item = T>
+{
     #[inline]
-    fn from(t: (T, T, T)) -> MultiObjective3<T> {
-        MultiObjective3 { objectives: [t.0, t.1, t.2] }
-    }
-}
-
-impl<'a, T: Sized + PartialOrd + Copy + Clone + Default> From<&'a[T]> for MultiObjective3<T> {
-    #[inline]
-    fn from(t: &'a[T]) -> MultiObjective3<T> {
-        assert!(t.len() <= 3);
+    fn from(iter: I) -> MultiObjective3<T> {
         let mut mo = Self::default();
-        for (i, &elm) in t.iter().enumerate() {
+        for (i, elm) in iter.into_iter().enumerate() {
+            assert!(i < 3);
             mo.objectives[i] = elm;
         }
         mo
