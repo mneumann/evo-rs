@@ -59,4 +59,3 @@ pub fn fast_non_dominated_sort<P: Dominate>(solutions: &[P], n: usize) -> Vec<Ve
 
     return fronts;
 }
-
