@@ -115,3 +115,41 @@ impl<T, R> MultiObjective for MultiObjective4<T>
         (self.objectives[objective] - other.objectives[objective]).into()
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct MultiObjectiveVec<T>
+    where T: Sized + PartialOrd + Copy + Clone
+{
+    objectives: Vec<T>,
+}
+
+impl<T: Sized + PartialOrd + Copy + Clone> From<Vec<T>> for MultiObjectiveVec<T> {
+    #[inline]
+    fn from(t: Vec<T>) -> MultiObjectiveVec<T> {
+        MultiObjectiveVec { objectives: t }
+    }
+}
+
+impl<T: Sized + PartialOrd + Copy + Clone> AsRef<[T]> for MultiObjectiveVec<T> {
+    fn as_ref(&self) -> &[T] {
+        &self.objectives
+    }
+}
+
+impl<T, R> MultiObjective for MultiObjectiveVec<T>
+    where T: Copy + PartialOrd + Sub<Output = R>,
+          R: Into<f32>
+{
+    #[inline]
+    fn num_objectives(&self) -> usize {
+        self.objectives.len()
+    }
+    #[inline]
+    fn cmp_objective(&self, other: &Self, objective: usize) -> Ordering {
+        self.objectives[objective].partial_cmp(&other.objectives[objective]).unwrap()
+    }
+    #[inline]
+    fn dist_objective(&self, other: &Self, objective: usize) -> f32 {
+        (self.objectives[objective] - other.objectives[objective]).into()
+    }
+}
