@@ -150,6 +150,82 @@ pub trait FitnessEval<I, F:Dominate+MultiObjective+Clone> {
     fn fitness(&mut self, &[I]) -> Vec<F>;
 }
 
+pub struct UnratedPopulation<I>
+    where I: Clone
+{
+    individuals: Vec<I>,
+}
+
+pub struct RatedPopulation<I, F>
+    where I: Clone,
+          F: Dominate + MultiObjective + Clone
+{
+    individuals: Vec<I>,
+    fitness: Vec<F>,
+    rank_dist: Vec<SolutionRankDist>,
+}
+
+impl<I, F> RatedPopulation<I, F>
+    where I: Clone,
+          F: Dominate + MultiObjective + Clone
+{
+    /// Generate an offspring population.
+    pub fn reproduce<R, M>(&self,
+                           rng: &mut R,
+                           offspring_size: usize,
+                           tournament_k: usize,
+                           mate: &mut M)
+                           -> UnratedPopulation<I>
+        where R: Rng,
+              M: FnMut(&mut R, &I, &I) -> I
+    {
+        assert!(self.individuals.len() == self.fitness.len());
+        assert!(self.individuals.len() == self.rank_dist.len());
+        assert!(tournament_k > 0);
+
+        let rank_dist = &self.rank_dist[..];
+
+        // create `offspring_size` new offspring using k-tournament (
+        // select the best individual out of k randomly choosen individuals)
+        let offspring: Vec<I> =
+            (0..offspring_size)
+                .map(|_| {
+
+                    // first parent. k candidates
+                    let p1 = tournament_selection_fast(rng,
+                                                       |i1, i2| rank_dist[i1] < rank_dist[i2],
+                                                       rank_dist.len(),
+                                                       tournament_k);
+
+                    // second parent. k candidates
+                    let p2 = tournament_selection_fast(rng,
+                                                       |i1, i2| rank_dist[i1] < rank_dist[i2],
+                                                       rank_dist.len(),
+                                                       tournament_k);
+
+                    // cross-over the two parents and produce one child (throw away
+                    // second child XXX)
+
+                    // The potentially dominating individual is gives as first
+                    // parameter.
+                    let (p1, p2) = if rank_dist[p1] < rank_dist[p2] {
+                        (p1, p2)
+                    } else if rank_dist[p2] < rank_dist[p1] {
+                        (p2, p1)
+                    } else {
+                        (p1, p2)
+                    };
+
+                    mate(rng, &self.individuals[p1], &self.individuals[p2])
+                })
+                .collect();
+
+        assert!(offspring.len() == offspring_size);
+
+        UnratedPopulation { individuals: offspring }
+    }
+}
+
 pub fn iterate<R: Rng,
                I: Clone,
                F: Dominate + MultiObjective + Clone,
